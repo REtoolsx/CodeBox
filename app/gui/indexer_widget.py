@@ -9,8 +9,8 @@ from pathlib import Path
 from datetime import datetime
 from app.gui.dialogs import DialogHelper
 from app.indexer.indexer import CoreIndexer, IndexingCallbacks
-from app.search.vector_db import VectorDatabase
 from app.utils.config import AppConfig
+from app.core.indexing_manager import IndexingManager
 
 
 class IndexerThread(QThread):
@@ -59,6 +59,7 @@ class IndexerWidget(QWidget):
     def __init__(self):
         super().__init__()
         self.indexer_thread = None
+        self.current_project_path = None
         self._init_ui()
 
     def _init_ui(self):
@@ -87,7 +88,7 @@ class IndexerWidget(QWidget):
 
         row, col = 0, 0
         for lang in AppConfig.SUPPORTED_LANGUAGES.keys():
-            checkbox = QCheckBox(lang.replace('_', ' ').title())
+            checkbox = QCheckBox(AppConfig.get_language_display_name(lang))
             checkbox.setChecked(lang in enabled_langs)
             self.lang_checkboxes[lang] = checkbox
 
@@ -148,45 +149,44 @@ class IndexerWidget(QWidget):
     def _start_indexing(self):
         project_path = self.path_input.text()
 
-        if not project_path or not Path(project_path).exists():
-            DialogHelper.show_warning(
-                self,
-                "Invalid Path",
-                "Please select a valid project directory."
-            )
-            return
-
         enabled_languages = [
             lang for lang, checkbox in self.lang_checkboxes.items()
             if checkbox.isChecked()
         ]
 
-        if not enabled_languages:
-            DialogHelper.show_warning(
-                self,
-                "No Languages Selected",
-                "Please select at least one language to index."
-            )
-            return
+        try:
+            # Prepare indexing using IndexingManager
+            indexing_ctx = IndexingManager.prepare_indexing(project_path, enabled_languages)
 
-        AppConfig.set_enabled_languages(enabled_languages)
+            # Store project path for finalization
+            self.current_project_path = indexing_ctx.project_path
 
-        self.indexing_path_changed.emit(project_path)
+            # Emit path change signal
+            self.indexing_path_changed.emit(indexing_ctx.project_path)
 
-        self.log_output.clear()
+            # Clear log
+            self.log_output.clear()
 
-        self.indexer_thread = IndexerThread(project_path, enabled_languages)
-        self.indexer_thread.progress.connect(self._update_progress)
-        self.indexer_thread.log.connect(self._append_log)
-        self.indexer_thread.finished.connect(self._indexing_finished)
-        self.indexer_thread.error.connect(self._indexing_error)
+            # Start indexing thread
+            self.indexer_thread = IndexerThread(indexing_ctx.project_path, indexing_ctx.languages)
+            self.indexer_thread.progress.connect(self._update_progress)
+            self.indexer_thread.log.connect(self._append_log)
+            self.indexer_thread.finished.connect(self._indexing_finished)
+            self.indexer_thread.error.connect(self._indexing_error)
 
-        self.start_btn.setEnabled(False)
-        self.cancel_btn.setEnabled(True)
-        self.browse_btn.setEnabled(False)
+            # Update UI state
+            self.start_btn.setEnabled(False)
+            self.cancel_btn.setEnabled(True)
+            self.browse_btn.setEnabled(False)
 
-        self.indexer_thread.start()
-        self.indexing_started.emit()
+            # Start thread
+            self.indexer_thread.start()
+            self.indexing_started.emit()
+
+        except ValueError as e:
+            DialogHelper.show_warning(self, "Validation Error", str(e))
+        except Exception as e:
+            DialogHelper.show_error(self, "Preparation Error", f"Failed to prepare indexing: {str(e)}")
 
     def _cancel_indexing(self):
         if self.indexer_thread:
@@ -202,6 +202,14 @@ class IndexerWidget(QWidget):
         self.log_output.append(message)
 
     def _indexing_finished(self, total_chunks: int):
+        # Finalize indexing (update metadata)
+        if self.current_project_path:
+            try:
+                IndexingManager.finalize_indexing(self.current_project_path, success=True)
+            except Exception as e:
+                self._append_log(f"Warning: Failed to finalize indexing: {str(e)}")
+
+        # Update UI
         self.start_btn.setEnabled(True)
         self.cancel_btn.setEnabled(False)
         self.browse_btn.setEnabled(True)

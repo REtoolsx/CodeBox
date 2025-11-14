@@ -4,15 +4,16 @@ import time
 from pathlib import Path
 from typing import Optional, List
 from datetime import datetime
-from app.indexer.parser import TreeSitterParser
-from app.indexer.chunker import CodeChunker
-from app.indexer.embeddings import EmbeddingGenerator
 from app.indexer.indexer import CoreIndexer
-from app.search.vector_db import VectorDatabase
-from app.search.hybrid import HybridSearch
 from app.utils.config import AppConfig
 from app.utils.project_manager import ProjectManager
 from app.utils.logger import get_logger
+from app.core.indexing_manager import IndexingManager
+from app.core.search_manager import SearchManager
+from app.core.result_formatter import calculate_score, process_cli_results
+from app.core.stats_manager import StatsManager
+from app.core.cli_helpers import CLIErrorHandler, CLIProjectPathResolver
+from app.core.model_validator import ModelValidator
 
 logger = get_logger(__name__)
 
@@ -21,17 +22,8 @@ class CLIHandler:
     def __init__(self):
         AppConfig.init_directories()
         self.project_manager = ProjectManager(cli_mode=True)
-        self.vector_db = None
-        self.hybrid_search = None
-
-    def _init_search(self, project_path: Optional[str] = None):
-        if project_path is None:
-            project_path = self.project_manager.get_current_project_path()
-
-        if not self.vector_db:
-            self.vector_db = VectorDatabase(project_path=project_path)
-            embedding_gen = EmbeddingGenerator()
-            self.hybrid_search = HybridSearch(self.vector_db, embedding_gen)
+        self.path_resolver = CLIProjectPathResolver(self.project_manager)
+        self.search_manager: Optional[SearchManager] = None
 
     def search(
         self,
@@ -46,100 +38,61 @@ class CLIHandler:
     ):
         try:
             search_start = time.time()
-            self._init_search()
+            project_path = self.path_resolver.get_path()
 
-            project_path = self.project_manager.get_current_project_path()
-            metadata = AppConfig.load_project_metadata(project_path)
-            indexed_model = metadata.get("embedding_model")
-            current_model = AppConfig.get_embedding_model()
+            # Initialize search manager (cached)
+            if not self.search_manager:
+                self.search_manager = SearchManager(project_path)
 
-            model_mismatch = indexed_model and indexed_model != current_model
-            mismatch_warning = None
-            if model_mismatch:
-                mismatch_warning = f"Warning: Index was created with '{indexed_model}' but searching with '{current_model}'. Results may be suboptimal."
-                logger.warning(mismatch_warning)
-
-            filters = {}
-            if language:
-                filters['language'] = language
-
-            search_exec_start = time.time()
-            results = self.hybrid_search.search(
+            # Execute search with validation
+            search_result = self.search_manager.execute_search(
                 query=query,
                 mode=mode,
                 limit=limit,
-                filters=filters
+                language=language,
+                validate_model=True
             )
-            search_exec_time = (time.time() - search_exec_start) * 1000
+
+            # Process results for CLI output
+            results_with_context = process_cli_results(
+                results=search_result.results,
+                mode=mode,
+                project_path=project_path,
+                context=context,
+                preview_length=preview_length,
+                full_content=full_content,
+                max_content_length=AppConfig.CLI_MAX_CONTENT_LENGTH
+            )
+
+            total_time = (time.time() - search_start) * 1000
 
             if output_format == "json":
-                results_with_context = []
-                for idx, r in enumerate(results):
-                    result_dict = {
-                        "file_path": r.get("file_path"),
-                        "start_line": r.get("start_line"),
-                        "end_line": r.get("end_line"),
-                        "language": r.get("language"),
-                        "chunk_type": r.get("chunk_type"),
-                        "node_name": r.get("node_name", ""),
-                        "size_bytes": r.get("size_bytes", 0),
-                        "modified_at": r.get("modified_at", ""),
-                        "content": r.get("content", "")[:AppConfig.CLI_MAX_CONTENT_LENGTH] if full_content
-                                  else r.get("content", "")[:preview_length],
-                        "content_preview": r.get("content", "")[:preview_length],
-                        "content_length": len(r.get("content", "")),
-                        "is_truncated": len(r.get("content", "")) > (AppConfig.CLI_MAX_CONTENT_LENGTH if full_content else preview_length),
-                        "score": self._get_score(r, mode, idx + 1, len(results))
-                    }
-
-                    if context > 0:
-                        lines_before, lines_after = self._get_context_lines(
-                            r.get("file_path"),
-                            r.get("start_line"),
-                            r.get("end_line"),
-                            context,
-                            project_path
-                        )
-                        result_dict["context"] = {
-                            "lines_before": lines_before,
-                            "lines_after": lines_after,
-                            "range_before": f"{max(0, r.get('start_line') - context)}-{r.get('start_line') - 1}",
-                            "range_after": f"{r.get('end_line') + 1}-{r.get('end_line') + context}"
-                        }
-
-                    results_with_context.append(result_dict)
-
-                total_time = (time.time() - search_start) * 1000
                 output_data = {
                     "success": True,
                     "query": query,
                     "mode": mode,
-                    "count": len(results),
+                    "count": len(search_result.results),
                     "performance": {
-                        "search_duration_ms": round(search_exec_time, 2),
+                        "search_duration_ms": round(search_result.execution_time_ms, 2),
                         "total_duration_ms": round(total_time, 2),
-                        "results_count": len(results),
-                        "results_per_second": round(len(results) / max((time.time() - search_start), 0.001), 2)
+                        "results_count": len(search_result.results),
+                        "results_per_second": round(len(search_result.results) / max((time.time() - search_start), 0.001), 2)
                     },
-                    "model": {
-                        "indexed_with": indexed_model or "unknown",
-                        "searching_with": current_model
-                    },
+                    "model": ModelValidator.format_model_info_for_json(search_result.validation),
                     "results": results_with_context
                 }
-                if mismatch_warning:
-                    output_data["model"]["mismatch_warning"] = mismatch_warning
-                self._output_json(output_data)
+                CLIErrorHandler.handle_success(output_data)
             else:
-                self._output_text_results(query, results, indexed_model, current_model, mismatch_warning)
+                self._output_text_results(
+                    query,
+                    search_result.results,
+                    search_result.validation.indexed_model,
+                    search_result.validation.current_model,
+                    search_result.validation.warning_message
+                )
 
         except Exception as e:
-            logger.error(f"Search failed: {e}")
-            self._output_json({
-                "success": False,
-                "error": str(e)
-            })
-            sys.exit(1)
+            CLIErrorHandler.handle_error("Search", e)
 
     def index(
         self,
@@ -148,127 +101,50 @@ class CLIHandler:
     ):
         try:
             if project_path is None:
-                project_path = self.project_manager.get_current_project_path()
+                project_path = self.path_resolver.get_path()
                 logger.info(f"Indexing current directory: {project_path}")
 
-            project_path_obj = Path(project_path)
-            if not project_path_obj.exists():
-                raise ValueError(f"Path does not exist: {project_path}")
+            # Prepare indexing using IndexingManager
+            indexing_ctx = IndexingManager.prepare_indexing(project_path, languages)
 
-            self.project_manager.ensure_project_directories(str(project_path_obj))
-
-            if not languages:
-                languages = list(AppConfig.SUPPORTED_LANGUAGES.keys())
-
-            indexer = CoreIndexer(str(project_path_obj), languages)
+            # Execute indexing
+            indexer = CoreIndexer(indexing_ctx.project_path, indexing_ctx.languages)
             result = indexer.index()
 
             if not result.success:
                 raise Exception(result.error)
 
-            self.project_manager.update_project_index_time(str(project_path_obj))
+            # Finalize indexing (update metadata)
+            IndexingManager.finalize_indexing(indexing_ctx.project_path, success=True)
 
-            self._output_json({
-                "success": True,
+            CLIErrorHandler.handle_success({
                 "project_path": result.project_path,
                 "project_hash": AppConfig.get_project_hash(result.project_path),
                 "files_processed": result.total_files,
                 "chunks_indexed": result.total_chunks,
-                "languages": languages,
+                "languages": indexing_ctx.languages,
                 "embedding_model": result.embedding_model,
                 "database_location": result.database_location
             })
 
         except Exception as e:
-            logger.error(f"Indexing failed: {e}")
-            self._output_json({
-                "success": False,
-                "error": str(e)
-            })
-            sys.exit(1)
+            CLIErrorHandler.handle_error("Indexing", e)
 
     def stats(self):
         try:
-            project_path = self.project_manager.get_current_project_path()
+            project_path = self.path_resolver.get_path()
 
-            vector_db = VectorDatabase(project_path=project_path)
-            stats = vector_db.get_stats()
+            # Use StatsManager for centralized stats retrieval
+            full_stats = StatsManager.get_full_stats(project_path)
 
-            project_stats = self.project_manager.get_project_stats(project_path)
-
-            metadata = AppConfig.load_project_metadata(project_path)
-            schema_version = metadata.get("schema_version", "1.0")
-
-            self._output_json({
-                "success": True,
-                "project": {
-                    "path": project_path,
-                    "name": project_stats.get("name"),
-                    "hash": AppConfig.get_project_hash(project_path),
-                    "indexed_at": project_stats.get("indexed_at")
-                },
-                "database": {
-                    "path": stats.get("db_path"),
-                    "table": stats.get("table_name"),
-                    "total_chunks": stats.get("count", 0)
-                },
-                "version": {
-                    "app_version": AppConfig.APP_VERSION,
-                    "schema_version": schema_version,
-                    "current_schema": AppConfig.SCHEMA_VERSION
-                }
+            CLIErrorHandler.handle_success({
+                "project": full_stats["project"],
+                "database": full_stats["database"],
+                "version": full_stats["version"]
             })
 
         except Exception as e:
-            logger.error(f"Failed to get stats: {e}")
-            self._output_json({
-                "success": False,
-                "error": str(e)
-            })
-            sys.exit(1)
-
-    def _output_json(self, data: dict):
-        print(json.dumps(data, indent=2, ensure_ascii=False))
-
-    def _get_score(self, result: dict, mode: str, rank: int = 1, total: int = 1) -> float:
-        if mode == "hybrid":
-            return result.get('rrf_score', 0.0)
-        elif mode == "vector":
-            distance = result.get('_distance', 1.0)
-            return 1.0 / (1.0 + distance)
-        elif mode == "keyword":
-            return (total - rank + 1) / max(total, 1)
-        else:
-            return 0.0
-
-    def _get_context_lines(
-        self,
-        file_path: str,
-        start_line: int,
-        end_line: int,
-        context: int,
-        project_path: str
-    ) -> tuple:
-        try:
-            full_path = Path(project_path) / file_path
-            if not full_path.exists():
-                return ([], [])
-
-            with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
-                all_lines = f.readlines()
-
-            context_start = max(0, start_line - context)
-            lines_before = all_lines[context_start:start_line]
-
-            context_end = min(len(all_lines), end_line + 1 + context)
-            lines_after = all_lines[end_line + 1:context_end]
-
-            return (
-                [line.rstrip() for line in lines_before],
-                [line.rstrip() for line in lines_after]
-            )
-        except Exception:
-            return ([], [])
+            CLIErrorHandler.handle_error("Stats", e)
 
     def _output_text_results(
         self,
@@ -297,6 +173,6 @@ class CLIHandler:
         for i, result in enumerate(results, 1):
             print(f"{i}. {result.get('file_path')} (Line {result.get('start_line')})")
             print(f"   Language: {result.get('language')}")
-            print(f"   Score: {self._get_score(result, mode, i, total):.4f}")
+            print(f"   Score: {calculate_score(result, mode, i, total):.4f}")
             print(f"   Preview: {result.get('content', '')[:100]}...")
             print()

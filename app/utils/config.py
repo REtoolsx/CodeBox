@@ -223,3 +223,75 @@ class AppConfig:
     @classmethod
     def get_embedding_model_info(cls, model_key: str) -> Optional[dict]:
         return cls.AVAILABLE_EMBEDDING_MODELS.get(model_key)
+
+    @classmethod
+    def load_indexing_settings(cls):
+        config = cls.load_global_config()
+        settings = config.get('indexing_settings', {})
+
+        cls.DEFAULT_CHUNK_SIZE = settings.get('chunk_size', 512)
+        cls.DEFAULT_CHUNK_OVERLAP = settings.get('chunk_overlap', 50)
+        cls.MAX_FILE_SIZE = settings.get('max_file_size', 1024 * 1024)
+
+    @classmethod
+    def save_indexing_settings(cls, chunk_size: int, chunk_overlap: int, max_file_size: int):
+        config = cls.load_global_config()
+
+        config['indexing_settings'] = {
+            'chunk_size': chunk_size,
+            'chunk_overlap': chunk_overlap,
+            'max_file_size': max_file_size
+        }
+
+        cls.save_global_config(config)
+
+        cls.DEFAULT_CHUNK_SIZE = chunk_size
+        cls.DEFAULT_CHUNK_OVERLAP = chunk_overlap
+        cls.MAX_FILE_SIZE = max_file_size
+
+    @classmethod
+    def load_search_settings(cls):
+        config = cls.load_global_config()
+        settings = config.get('search_settings', {})
+
+        cls.DEFAULT_SEARCH_LIMIT = settings.get('search_limit', 50)
+        cls.RRF_K = settings.get('rrf_k', 60)
+
+    @classmethod
+    def save_search_settings(cls, search_limit: int, rrf_k: int):
+        config = cls.load_global_config()
+
+        config['search_settings'] = {
+            'search_limit': search_limit,
+            'rrf_k': rrf_k
+        }
+
+        cls.save_global_config(config)
+
+        cls.DEFAULT_SEARCH_LIMIT = search_limit
+        cls.RRF_K = rrf_k
+
+    @classmethod
+    def get_indexing_settings(cls) -> dict:
+        config = cls.load_global_config()
+        return config.get('indexing_settings', {
+            'chunk_size': cls.DEFAULT_CHUNK_SIZE,
+            'chunk_overlap': cls.DEFAULT_CHUNK_OVERLAP,
+            'max_file_size': cls.MAX_FILE_SIZE
+        })
+
+    @classmethod
+    def get_search_settings(cls) -> dict:
+        config = cls.load_global_config()
+        return config.get('search_settings', {
+            'search_limit': cls.DEFAULT_SEARCH_LIMIT,
+            'rrf_k': cls.RRF_K
+        })
+
+    @staticmethod
+    def get_language_display_name(lang_code: str) -> str:
+        return lang_code.replace('_', ' ').title()
+
+    @staticmethod
+    def get_language_code_from_display(display_name: str) -> str:
+        return display_name.lower().replace(' ', '_')

@@ -6,34 +6,32 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal, QThread
 from app.gui.dialogs import DialogHelper
 from app.gui.code_viewer import CodeViewer
-from app.search.vector_db import VectorDatabase
-from app.search.hybrid import HybridSearch
-from app.indexer.embeddings import EmbeddingGenerator
+from app.core.search_manager import SearchManager
+from app.core.result_formatter import process_gui_results
 
 
 class SearchThread(QThread):
     finished = pyqtSignal(list)
     error = pyqtSignal(str)
 
-    def __init__(self, query: str, mode: str, limit: int):
+    def __init__(self, search_manager: SearchManager, query: str, mode: str, limit: int):
         super().__init__()
+        self.search_manager = search_manager
         self.query = query
         self.mode = mode
         self.limit = limit
 
     def run(self):
         try:
-            vector_db = VectorDatabase()
-            embedding_gen = EmbeddingGenerator()
-            hybrid_search = HybridSearch(vector_db, embedding_gen)
-
-            results = hybrid_search.search(
-                self.query,
+            # Execute search using SearchManager
+            search_result = self.search_manager.execute_search(
+                query=self.query,
                 mode=self.mode,
-                limit=self.limit
+                limit=self.limit,
+                validate_model=False  # Validation already done in UI
             )
 
-            self.finished.emit(results)
+            self.finished.emit(search_result.results)
 
         except Exception as e:
             self.error.emit(f"Search failed: {str(e)}")
@@ -47,10 +45,22 @@ class SearchWidget(QWidget):
         super().__init__()
         self.search_thread = None
         self.current_results = []
+        self.model_warning_label = None
+        self.search_manager = SearchManager()  # Cached search manager
         self._init_ui()
 
     def _init_ui(self):
         layout = QVBoxLayout()
+
+        # Model warning label
+        self.model_warning_label = QLabel()
+        self.model_warning_label.setStyleSheet(
+            "background-color: #fff3cd; color: #856404; "
+            "padding: 8px; border: 1px solid #ffc107; border-radius: 4px;"
+        )
+        self.model_warning_label.setWordWrap(True)
+        self.model_warning_label.setVisible(False)
+        layout.addWidget(self.model_warning_label)
 
         search_group = QGroupBox("Search Query")
         search_layout = QVBoxLayout()
@@ -130,16 +140,34 @@ class SearchWidget(QWidget):
             )
             return
 
+        # Validate models before search
+        try:
+            validation_result = self.search_manager.validate_models()
+
+            if validation_result.has_mismatch and validation_result.warning_message:
+                self.model_warning_label.setText(
+                    f"⚠️ {validation_result.warning_message}"
+                )
+                self.model_warning_label.setVisible(True)
+            else:
+                self.model_warning_label.setVisible(False)
+        except Exception:
+            # If validation fails, continue with search but hide warning
+            self.model_warning_label.setVisible(False)
+
         mode = self.mode_combo.currentText().lower()
         limit = int(self.limit_combo.currentText())
 
+        # Disable UI during search
         self.search_btn.setEnabled(False)
         self.search_input.setEnabled(False)
 
+        # Clear previous results
         self.results_tree.clear()
         self.code_viewer.clear()
 
-        self.search_thread = SearchThread(query, mode, limit)
+        # Start search thread with SearchManager
+        self.search_thread = SearchThread(self.search_manager, query, mode, limit)
         self.search_thread.finished.connect(self._display_results)
         self.search_thread.error.connect(self._search_error)
         self.search_thread.start()
@@ -149,24 +177,24 @@ class SearchWidget(QWidget):
     def _display_results(self, results: list):
         self.current_results = results
 
+        # Re-enable UI
         self.search_btn.setEnabled(True)
         self.search_input.setEnabled(True)
 
         self.results_label.setText(f"Results: {len(results)}")
 
-        files_dict = {}
-        for result in results:
-            file_path = result.get('file_path', 'Unknown')
-            if file_path not in files_dict:
-                files_dict[file_path] = []
-            files_dict[file_path].append(result)
+        mode = self.mode_combo.currentText().lower()
 
+        # Process results for GUI tree view using centralized function
+        files_dict = process_gui_results(results, mode)
+
+        # Build tree widget
         for file_path, file_results in files_dict.items():
             file_item = QTreeWidgetItem(self.results_tree)
             file_item.setText(0, file_path)
             file_item.setText(1, f"{len(file_results)} chunks")
 
-            for result in file_results:
+            for idx, result in file_results:
                 chunk_item = QTreeWidgetItem(file_item)
                 chunk_item.setText(
                     0,
@@ -178,7 +206,8 @@ class SearchWidget(QWidget):
                 )
                 chunk_item.setText(2, result.get('chunk_type', 'code'))
 
-                score = result.get('rrf_score', result.get('_distance', 0))
+                # Use pre-calculated score from process_gui_results
+                score = result.get('_calculated_score', 0.0)
                 chunk_item.setText(3, f"{score:.4f}")
 
                 chunk_item.setData(0, Qt.ItemDataRole.UserRole, result)

@@ -44,6 +44,8 @@ ENV/
 
 # Config
 .codebox_config.json
+CLAUDE.md
+project_guide.md
 
 # Logs
 *.log

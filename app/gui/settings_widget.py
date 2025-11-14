@@ -5,8 +5,9 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from app.gui.dialogs import DialogHelper
-from app.search.vector_db import VectorDatabase
 from app.utils.config import AppConfig
+from app.core.stats_manager import StatsManager
+from app.core.model_validator import ModelValidator
 
 
 class SettingsWidget(QWidget):
@@ -161,19 +162,13 @@ class SettingsWidget(QWidget):
     def _load_settings(self):
         self._load_db_stats()
         self._load_embedding_model()
+        self._load_indexing_and_search_settings()
 
     def _load_db_stats(self):
         try:
-            vector_db = VectorDatabase()
-            stats = vector_db.get_stats()
-
-            stats_text = f"""
-<b>Database Location:</b> {stats.get('db_path', 'N/A')}<br>
-<b>Table Name:</b> {stats.get('table_name', 'N/A')}<br>
-<b>Total Chunks:</b> {stats.get('count', 0):,}<br>
-            """
-
-            self.stats_text.setHtml(stats_text)
+            # Use StatsManager for centralized full stats retrieval
+            stats_html = StatsManager.format_full_stats_html()
+            self.stats_text.setHtml(stats_html)
 
         except Exception as e:
             self.stats_text.setText(f"Error loading stats: {str(e)}")
@@ -195,6 +190,16 @@ class SettingsWidget(QWidget):
             self.model_combo.setCurrentIndex(0)
             self.current_model = self.model_combo.currentData()
 
+    def _load_indexing_and_search_settings(self):
+        AppConfig.load_indexing_settings()
+        AppConfig.load_search_settings()
+
+        self.chunk_size_spin.setValue(AppConfig.DEFAULT_CHUNK_SIZE)
+        self.overlap_spin.setValue(AppConfig.DEFAULT_CHUNK_OVERLAP)
+        self.max_file_spin.setValue(AppConfig.MAX_FILE_SIZE // 1024)
+        self.search_limit_spin.setValue(AppConfig.DEFAULT_SEARCH_LIMIT)
+        self.rrf_k_spin.setValue(AppConfig.RRF_K)
+
     def _on_model_changed(self):
         selected_data = self.model_combo.currentData()
 
@@ -210,11 +215,16 @@ class SettingsWidget(QWidget):
         self.autosync_status.setText(f"Status: {status}")
 
     def _save_settings(self):
-        AppConfig.DEFAULT_CHUNK_SIZE = self.chunk_size_spin.value()
-        AppConfig.DEFAULT_CHUNK_OVERLAP = self.overlap_spin.value()
-        AppConfig.MAX_FILE_SIZE = self.max_file_spin.value() * 1024
-        AppConfig.DEFAULT_SEARCH_LIMIT = self.search_limit_spin.value()
-        AppConfig.RRF_K = self.rrf_k_spin.value()
+        AppConfig.save_indexing_settings(
+            chunk_size=self.chunk_size_spin.value(),
+            chunk_overlap=self.overlap_spin.value(),
+            max_file_size=self.max_file_spin.value() * 1024
+        )
+
+        AppConfig.save_search_settings(
+            search_limit=self.search_limit_spin.value(),
+            rrf_k=self.rrf_k_spin.value()
+        )
 
         selected_data = self.model_combo.currentData()
 

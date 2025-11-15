@@ -5,6 +5,7 @@ import numpy as np
 import pyarrow as pa
 import threading
 import logging
+import os
 from app.utils.config import AppConfig
 
 logger = logging.getLogger(__name__)
@@ -101,7 +102,6 @@ class VectorDatabase:
             logger.debug("FTS index created/updated successfully")
         except Exception as e:
             logger.warning(f"Failed to create FTS index (keyword search may not work): {e}")
-            # Don't crash - vector search can still work
 
     def _refresh_table(self):
         with self._lock:
@@ -180,12 +180,10 @@ class VectorDatabase:
 
                 self._refresh_table()
 
-                # Only update FTS index when requested (for performance)
                 if update_fts:
                     self._update_fts_index()
 
             except ValueError as e:
-                # Dimension mismatch - re-raise with context
                 logger.error(f"Embedding dimension error: {e}")
                 raise
             except Exception as e:
@@ -283,3 +281,57 @@ class VectorDatabase:
         except Exception as e:
             logger.error(f"Failed to get stats: {e}")
             return {"count": 0}
+
+    def get_language_breakdown(self) -> Dict[str, int]:
+        """Aşama 1: Get language breakdown from table"""
+        if self.table is None:
+            return {}
+
+        try:
+            # Query unique languages and count
+            df = self.table.to_pandas()
+            if 'language' not in df.columns:
+                return {}
+
+            language_counts = df.groupby('language')['file_path'].nunique().to_dict()
+            return language_counts
+
+        except Exception as e:
+            logger.error(f"Failed to get language breakdown: {e}")
+            return {}
+
+    def get_chunk_type_breakdown(self) -> Dict[str, int]:
+        """Aşama 1: Get chunk type breakdown from table"""
+        if self.table is None:
+            return {}
+
+        try:
+            df = self.table.to_pandas()
+            if 'chunk_type' not in df.columns:
+                return {}
+
+            chunk_type_counts = df['chunk_type'].value_counts().to_dict()
+            return chunk_type_counts
+
+        except Exception as e:
+            logger.error(f"Failed to get chunk type breakdown: {e}")
+            return {}
+
+    def get_database_size_mb(self) -> float:
+        """Aşama 1: Get database size in MB"""
+        try:
+            if not self.db_path.exists():
+                return 0.0
+
+            total_size = 0
+            for dirpath, dirnames, filenames in os.walk(self.db_path):
+                for filename in filenames:
+                    filepath = os.path.join(dirpath, filename)
+                    if os.path.exists(filepath):
+                        total_size += os.path.getsize(filepath)
+
+            return round(total_size / (1024 * 1024), 2)
+
+        except Exception as e:
+            logger.error(f"Failed to get database size: {e}")
+            return 0.0

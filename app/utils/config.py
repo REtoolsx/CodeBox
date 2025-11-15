@@ -6,12 +6,10 @@ import json
 
 
 class AppConfig:
-    # Sistem yolları (sabit)
     HOME_DIR = Path.home() / ".codebox"
     GLOBAL_CONFIG_FILE = HOME_DIR / "config.json"
     PROJECTS_DIR = HOME_DIR / "projects"
 
-    # Runtime değerleri (JSON'dan yüklenir)
     APP_NAME = None
     APP_VERSION = None
     DB_TABLE_NAME = None
@@ -29,8 +27,8 @@ class AppConfig:
     AUTO_SYNC_DEBOUNCE_SECONDS = None
     AUTO_SYNC_BATCH_SIZE = None
     DEFAULT_IGNORE_PATTERNS = None
+    EMBEDDING_BATCH_SIZE = None  # Aşama 3: Memory Optimization
 
-    # Config cache
     _current_project_path = None
     _config_loaded = False
 
@@ -38,7 +36,6 @@ class AppConfig:
     def get_auto_sync_enabled(cls) -> bool:
         if cls.AUTO_SYNC_ENABLED is None:
             cls.ensure_config_loaded()
-        # Check global config first (user override)
         config = cls.load_global_config()
         return config.get('auto_sync_enabled', cls.AUTO_SYNC_ENABLED)
 
@@ -232,39 +229,26 @@ class AppConfig:
     def get_language_code_from_display(display_name: str) -> str:
         return display_name.lower().replace(' ', '_')
 
-    # ========== JSON Config Loading ==========
-
     @classmethod
     def _load_base_config(cls, config: dict):
-        """
-        Load base configuration values from JSON
-
-        Args:
-            config: Project config dict
-        """
-        # App settings
         app_config = config.get("app", {})
         cls.APP_NAME = app_config.get("name", "CodeBox")
         cls.APP_VERSION = app_config.get("version", "1.0.0")
         cls.CLI_CONTENT_PREVIEW_LENGTH = app_config.get("cli_preview_length", 200)
         cls.CLI_MAX_CONTENT_LENGTH = app_config.get("cli_max_content_length", 5000)
 
-        # Database settings
         db_config = config.get("database", {})
         cls.DB_TABLE_NAME = db_config.get("table_name", "code_chunks")
 
-        # Auto-sync settings
         auto_sync_config = config.get("auto_sync", {})
         cls.AUTO_SYNC_ENABLED = auto_sync_config.get("enabled", False)
         cls.AUTO_SYNC_DEBOUNCE_SECONDS = auto_sync_config.get("debounce_seconds", 2.0)
         cls.AUTO_SYNC_BATCH_SIZE = auto_sync_config.get("batch_size", 10)
 
-        # Embedding settings
         embedding_config = config.get("embedding", {})
         cls.EMBEDDING_DIM = embedding_config.get("default_dim", 384)
         cls.AVAILABLE_EMBEDDING_MODELS = embedding_config.get("available_models", {})
 
-        # Ignore patterns
         ignore_config = config.get("ignore", {})
         path_blacklist = ignore_config.get("path_blacklist", [])
         extension_blacklist = ignore_config.get("extension_blacklist", [])
@@ -274,28 +258,19 @@ class AppConfig:
 
     @classmethod
     def ensure_config_loaded(cls, project_path: str = None):
-        """
-        Ensure configuration is loaded from JSON
-
-        Args:
-            project_path: Project directory path (optional, uses cwd if not provided)
-        """
         if not project_path:
             project_path = str(Path.cwd().resolve())
 
-        # Reload if project changed or not loaded yet
         if not cls._config_loaded or cls._current_project_path != project_path:
             cls._current_project_path = project_path
             config = cls.load_project_config(project_path)
 
             if not config:
-                # Create default config
                 cls.create_default_config(project_path)
                 config = cls.load_project_config(project_path)
 
             if config:
                 cls._load_base_config(config)
-                # Apply active profile
                 active_profile = config.get("active_profile", "auto")
                 if active_profile == "auto":
                     active_profile = cls.detect_profile(project_path, config)
@@ -303,27 +278,16 @@ class AppConfig:
                 profiles = config.get("profiles", {})
                 profile_settings = profiles.get(active_profile, profiles.get("medium", {}))
 
-                # Apply profile settings
                 cls.DEFAULT_CHUNK_SIZE = profile_settings.get("chunk_size", 512)
                 cls.DEFAULT_CHUNK_OVERLAP = profile_settings.get("chunk_overlap", 50)
                 cls.MAX_FILE_SIZE = profile_settings.get("max_file_size", 1048576)
                 cls.DEFAULT_SEARCH_LIMIT = profile_settings.get("search_limit", 50)
                 cls.RRF_K = profile_settings.get("rrf_k", 60)
                 cls.CLI_CONTENT_PREVIEW_LENGTH = profile_settings.get("preview_length", cls.CLI_CONTENT_PREVIEW_LENGTH)
-
-    # ========== Profile-Based Configuration ==========
+                cls.EMBEDDING_BATCH_SIZE = profile_settings.get("embedding_batch_size", 100)  # Aşama 3
 
     @classmethod
     def load_project_config(cls, project_path: str) -> Optional[dict]:
-        """
-        Load .codebox.config.json from project root
-
-        Args:
-            project_path: Project directory path
-
-        Returns:
-            Config dict or None if not found
-        """
         config_path = Path(project_path) / ".codebox.config.json"
         if not config_path.exists():
             return None
@@ -336,15 +300,6 @@ class AppConfig:
 
     @classmethod
     def create_default_config(cls, project_path: str) -> bool:
-        """
-        Create default .codebox.config.json in project root
-
-        Args:
-            project_path: Project directory path
-
-        Returns:
-            True if created successfully
-        """
         config_path = Path(project_path) / ".codebox.config.json"
         if config_path.exists():
             return False
@@ -427,7 +382,7 @@ class AppConfig:
             },
             "profiles": {
                 "medium": {
-                    "description": "Orta boyutlu projeler (< 5000 dosya)",
+                    "description": "Medium projects (< 5000 files)",
                     "chunk_size": 512,
                     "chunk_overlap": 50,
                     "max_file_size": 1048576,
@@ -437,7 +392,7 @@ class AppConfig:
                     "preview_length": 200
                 },
                 "large": {
-                    "description": "Büyük projeler (> 5000 dosya)",
+                    "description": "Large projects (> 5000 files)",
                     "chunk_size": 1024,
                     "chunk_overlap": 100,
                     "max_file_size": 2097152,
@@ -458,16 +413,6 @@ class AppConfig:
 
     @classmethod
     def detect_profile(cls, project_path: str, config: dict) -> str:
-        """
-        Auto-detect appropriate profile based on project size
-
-        Args:
-            project_path: Project directory path
-            config: Project configuration dict
-
-        Returns:
-            Profile name ("medium" or "large")
-        """
         try:
             from app.core.file_filters import should_index_file
 
@@ -488,14 +433,6 @@ class AppConfig:
 
     @classmethod
     def apply_profile(cls, profile_name: str, project_path: str, cli_overrides: Optional[dict] = None):
-        """
-        Apply profile settings to AppConfig
-
-        Args:
-            profile_name: Profile name or "auto"
-            project_path: Project directory path
-            cli_overrides: CLI argument overrides (optional)
-        """
         cls._current_project_path = project_path
         config = cls.load_project_config(project_path)
 
@@ -506,7 +443,6 @@ class AppConfig:
         if not config:
             return
 
-        # Load base config (app, database, auto_sync, embedding)
         cls._load_base_config(config)
 
         active_profile = profile_name
@@ -541,15 +477,6 @@ class AppConfig:
 
     @classmethod
     def get_active_profile(cls, project_path: str) -> str:
-        """
-        Get active profile name
-
-        Args:
-            project_path: Project directory path
-
-        Returns:
-            Active profile name
-        """
         config = cls.load_project_config(project_path)
         if not config:
             return "auto"
@@ -562,15 +489,6 @@ class AppConfig:
 
     @classmethod
     def get_ignore_config(cls, project_path: str) -> dict:
-        """
-        Get ignore configuration (extension_blacklist, path_blacklist)
-
-        Args:
-            project_path: Project directory path
-
-        Returns:
-            Dict with extension_blacklist and path_blacklist
-        """
         config = cls.load_project_config(project_path)
 
         if config and 'ignore' in config:
@@ -579,7 +497,6 @@ class AppConfig:
                 'path_blacklist': config['ignore'].get('path_blacklist', [])
             }
 
-        # Fallback to DEFAULT_IGNORE_PATTERNS
         return {
             'extension_blacklist': ['*.pyc', '*.min.js', '*.min.css'],
             'path_blacklist': cls.DEFAULT_IGNORE_PATTERNS

@@ -8,19 +8,9 @@ from app.utils.project_manager import ProjectManager
 
 
 class StatsManager:
-    """Centralized statistics management for CLI"""
 
     @staticmethod
     def get_database_stats(project_path: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Get database statistics for a project
-
-        Args:
-            project_path: Project path (if None, uses current project)
-
-        Returns:
-            Dictionary containing database stats
-        """
         if project_path is None:
             project_manager = ProjectManager()
             project_path = project_manager.get_current_project_path()
@@ -35,16 +25,44 @@ class StatsManager:
         }
 
     @staticmethod
+    def get_language_breakdown(project_path: Optional[str] = None) -> Dict[str, int]:
+        """Aşama 1: Get language breakdown from vector database"""
+        if project_path is None:
+            project_manager = ProjectManager()
+            project_path = project_manager.get_current_project_path()
+
+        vector_db = VectorDatabase(project_path=project_path)
+        return vector_db.get_language_breakdown()
+
+    @staticmethod
+    def get_advanced_stats(project_path: Optional[str] = None) -> Dict[str, Any]:
+        """Aşama 1: Get detailed indexing statistics"""
+        if project_path is None:
+            project_manager = ProjectManager()
+            project_path = project_manager.get_current_project_path()
+
+        vector_db = VectorDatabase(project_path=project_path)
+        language_breakdown = vector_db.get_language_breakdown()
+        chunk_type_breakdown = vector_db.get_chunk_type_breakdown()
+        db_size_mb = vector_db.get_database_size_mb()
+        db_stats = vector_db.get_stats()
+        total_chunks = db_stats.get('count', 0)
+
+        # Calculate average chunks per file
+        total_files = sum(language_breakdown.values()) if language_breakdown else 0
+        avg_chunks_per_file = (total_chunks / total_files) if total_files > 0 else 0
+
+        return {
+            'total_chunks': total_chunks,
+            'total_files': total_files,
+            'avg_chunks_per_file': round(avg_chunks_per_file, 2),
+            'language_breakdown': language_breakdown,
+            'chunk_type_breakdown': chunk_type_breakdown,
+            'database_size_mb': db_size_mb
+        }
+
+    @staticmethod
     def get_project_stats(project_path: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Get project metadata and statistics
-
-        Args:
-            project_path: Project path (if None, uses current project)
-
-        Returns:
-            Dictionary containing project stats
-        """
         if project_path is None:
             project_manager = ProjectManager()
             project_path = project_manager.get_current_project_path()
@@ -61,15 +79,6 @@ class StatsManager:
 
     @staticmethod
     def get_model_info(project_path: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Get embedding model information for a project
-
-        Args:
-            project_path: Project path (if None, uses current project)
-
-        Returns:
-            Dictionary containing model info
-        """
         if project_path is None:
             project_manager = ProjectManager()
             project_path = project_manager.get_current_project_path()
@@ -85,15 +94,6 @@ class StatsManager:
 
     @staticmethod
     def get_full_stats(project_path: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Get complete statistics including database, project and model info
-
-        Args:
-            project_path: Project path (if None, uses current project)
-
-        Returns:
-            Dictionary containing all statistics
-        """
         if project_path is None:
             project_manager = ProjectManager()
             project_path = project_manager.get_current_project_path()

@@ -83,24 +83,26 @@
 
   "profiles": {
     "medium": {
-      "description": "Orta boyutlu projeler (< 5000 dosya)",
+      "description": "Medium projects (< 5000 files)",
       "chunk_size": 512,
       "chunk_overlap": 50,
       "max_file_size": 1048576,
       "search_limit": 50,
       "rrf_k": 60,
       "embedding_model": "all-MiniLM-L6-v2",
-      "preview_length": 200
+      "preview_length": 200,
+      "embedding_batch_size": 100
     },
     "large": {
-      "description": "Büyük projeler (> 5000 dosya)",
+      "description": "Large projects (> 5000 files)",
       "chunk_size": 1024,
       "chunk_overlap": 100,
       "max_file_size": 2097152,
       "search_limit": 100,
       "rrf_k": 80,
       "embedding_model": "all-mpnet-base-v2",
-      "preview_length": 300
+      "preview_length": 300,
+      "embedding_batch_size": 50
     }
   }
 }

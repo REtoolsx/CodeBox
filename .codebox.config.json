@@ -1,0 +1,33 @@
+{
+  "active_profile": "auto",
+
+  "auto_settings": {
+    "thresholds": {
+      "medium_max_files": 5000,
+      "large_min_files": 5001
+    }
+  },
+
+  "profiles": {
+    "medium": {
+      "description": "Orta boyutlu projeler (< 5000 dosya)",
+      "chunk_size": 512,
+      "chunk_overlap": 50,
+      "max_file_size": 1048576,
+      "search_limit": 50,
+      "rrf_k": 60,
+      "embedding_model": "all-MiniLM-L6-v2",
+      "preview_length": 200
+    },
+    "large": {
+      "description": "Büyük projeler (> 5000 dosya)",
+      "chunk_size": 1024,
+      "chunk_overlap": 100,
+      "max_file_size": 2097152,
+      "search_limit": 100,
+      "rrf_k": 80,
+      "embedding_model": "all-mpnet-base-v2",
+      "preview_length": 300
+    }
+  }
+}

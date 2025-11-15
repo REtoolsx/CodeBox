@@ -29,8 +29,19 @@ python codebox.py --help
 # Index your project (auto-detects languages)
 python codebox.py index /path/to/project
 
+# Index with profile (auto, medium, large)
+python codebox.py index --profile auto       # Auto-detect based on project size
+python codebox.py index --profile medium     # Optimized for medium projects
+python codebox.py index --profile large      # Optimized for large projects
+
+# Index with custom settings (override profile)
+python codebox.py index --chunk-size 1024 --max-file-size 2097152
+
 # Search code
 python codebox.py search "user authentication" --mode hybrid --limit 10
+
+# Search with profile
+python codebox.py search "authentication" --profile large --limit 20
 
 # View statistics
 python codebox.py stats
@@ -38,6 +49,16 @@ python codebox.py stats
 # Auto-sync (watch for file changes)
 python codebox.py auto-sync
 ```
+
+### Profile Configuration
+
+CodeBox supports profile-based configuration via `.codebox.config.json` in your project root:
+
+- **auto**: Automatically detects profile based on project size (< 5000 files = medium, >= 5000 files = large)
+- **medium**: Optimized for medium projects (chunk_size: 512, search_limit: 50)
+- **large**: Optimized for large projects (chunk_size: 1024, search_limit: 100)
+
+CLI arguments override profile settings for maximum flexibility.
 
 ## ✨ Features
 

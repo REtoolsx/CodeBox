@@ -154,9 +154,13 @@ class ModelValidator:
 
     @staticmethod
     def format_model_info_for_json(validation: ModelValidationResult) -> Dict[str, Any]:
+        # Normalize both model names to full format for consistent display
+        indexed_full = ModelValidator._normalize_model_name(validation.indexed_model) or "unknown"
+        current_full = ModelValidator._normalize_model_name(validation.current_model)
+
         info = {
-            "indexed_with": validation.indexed_model or "unknown",
-            "searching_with": validation.current_model
+            "indexed_with": indexed_full,
+            "searching_with": current_full
         }
 
         if validation.warning_message:

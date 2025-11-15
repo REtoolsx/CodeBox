@@ -34,11 +34,16 @@ class CLIHandler:
         limit: int = 10,
         full_content: bool = False,
         preview_length: int = 200,
-        context: int = 0
+        context: int = 0,
+        profile: Optional[str] = None
     ):
         try:
             search_start = time.time()
             project_path = self.path_resolver.get_path()
+
+            # Apply profile if specified
+            if profile:
+                AppConfig.apply_profile(profile, project_path)
 
             # Initialize search manager (cached)
             if not self.search_manager:
@@ -86,12 +91,20 @@ class CLIHandler:
 
     def index(
         self,
-        project_path: Optional[str] = None
+        project_path: Optional[str] = None,
+        profile: Optional[str] = None,
+        cli_overrides: Optional[dict] = None
     ):
         try:
             if project_path is None:
                 project_path = self.path_resolver.get_path()
                 logger.info(f"Indexing current directory: {project_path}")
+
+            # Apply profile settings
+            active_profile = profile if profile else AppConfig.get_active_profile(project_path)
+            AppConfig.apply_profile(active_profile, project_path, cli_overrides)
+
+            logger.info(f"Using profile: {active_profile}")
 
             # Prepare indexing using IndexingManager
             indexing_ctx = IndexingManager.prepare_indexing(project_path)

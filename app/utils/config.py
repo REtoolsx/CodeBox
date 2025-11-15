@@ -269,3 +269,180 @@ class AppConfig:
     @staticmethod
     def get_language_code_from_display(display_name: str) -> str:
         return display_name.lower().replace(' ', '_')
+
+    # ========== Profile-Based Configuration ==========
+
+    @classmethod
+    def load_project_config(cls, project_path: str) -> Optional[dict]:
+        """
+        Load .codebox.config.json from project root
+
+        Args:
+            project_path: Project directory path
+
+        Returns:
+            Config dict or None if not found
+        """
+        config_path = Path(project_path) / ".codebox.config.json"
+        if not config_path.exists():
+            return None
+
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            return None
+
+    @classmethod
+    def create_default_config(cls, project_path: str) -> bool:
+        """
+        Create default .codebox.config.json in project root
+
+        Args:
+            project_path: Project directory path
+
+        Returns:
+            True if created successfully
+        """
+        config_path = Path(project_path) / ".codebox.config.json"
+        if config_path.exists():
+            return False
+
+        default_config = {
+            "active_profile": "auto",
+            "auto_settings": {
+                "thresholds": {
+                    "medium_max_files": 5000,
+                    "large_min_files": 5001
+                }
+            },
+            "profiles": {
+                "medium": {
+                    "description": "Orta boyutlu projeler (< 5000 dosya)",
+                    "chunk_size": 512,
+                    "chunk_overlap": 50,
+                    "max_file_size": 1048576,
+                    "search_limit": 50,
+                    "rrf_k": 60,
+                    "embedding_model": "all-MiniLM-L6-v2",
+                    "preview_length": 200
+                },
+                "large": {
+                    "description": "Büyük projeler (> 5000 dosya)",
+                    "chunk_size": 1024,
+                    "chunk_overlap": 100,
+                    "max_file_size": 2097152,
+                    "search_limit": 100,
+                    "rrf_k": 80,
+                    "embedding_model": "all-mpnet-base-v2",
+                    "preview_length": 300
+                }
+            }
+        }
+
+        try:
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(default_config, f, indent=2, ensure_ascii=False)
+            return True
+        except Exception:
+            return False
+
+    @classmethod
+    def detect_profile(cls, project_path: str, config: dict) -> str:
+        """
+        Auto-detect appropriate profile based on project size
+
+        Args:
+            project_path: Project directory path
+            config: Project configuration dict
+
+        Returns:
+            Profile name ("medium" or "large")
+        """
+        try:
+            from app.core.file_filters import should_index_file
+
+            project_dir = Path(project_path)
+            file_count = 0
+
+            for file_path in project_dir.rglob('*'):
+                if file_path.is_file() and should_index_file(str(file_path), str(project_dir)):
+                    file_count += 1
+
+            thresholds = config.get("auto_settings", {}).get("thresholds", {})
+            medium_max = thresholds.get("medium_max_files", 5000)
+
+            return "medium" if file_count <= medium_max else "large"
+
+        except Exception:
+            return "medium"
+
+    @classmethod
+    def apply_profile(cls, profile_name: str, project_path: str, cli_overrides: Optional[dict] = None):
+        """
+        Apply profile settings to AppConfig
+
+        Args:
+            profile_name: Profile name or "auto"
+            project_path: Project directory path
+            cli_overrides: CLI argument overrides (optional)
+        """
+        config = cls.load_project_config(project_path)
+
+        if not config:
+            config = cls.create_default_config(project_path)
+            config = cls.load_project_config(project_path)
+
+        if not config:
+            return
+
+        active_profile = profile_name
+        if profile_name == "auto":
+            active_profile = cls.detect_profile(project_path, config)
+
+        profiles = config.get("profiles", {})
+        profile_settings = profiles.get(active_profile, profiles.get("medium", {}))
+
+        cls.DEFAULT_CHUNK_SIZE = profile_settings.get("chunk_size", 512)
+        cls.DEFAULT_CHUNK_OVERLAP = profile_settings.get("chunk_overlap", 50)
+        cls.MAX_FILE_SIZE = profile_settings.get("max_file_size", 1024 * 1024)
+        cls.DEFAULT_SEARCH_LIMIT = profile_settings.get("search_limit", 50)
+        cls.RRF_K = profile_settings.get("rrf_k", 60)
+        cls.CLI_CONTENT_PREVIEW_LENGTH = profile_settings.get("preview_length", 200)
+
+        embedding_model = profile_settings.get("embedding_model")
+        if embedding_model and not cls.get_embedding_model():
+            cls.set_embedding_model(embedding_model)
+
+        if cli_overrides:
+            if "chunk_size" in cli_overrides:
+                cls.DEFAULT_CHUNK_SIZE = cli_overrides["chunk_size"]
+            if "chunk_overlap" in cli_overrides:
+                cls.DEFAULT_CHUNK_OVERLAP = cli_overrides["chunk_overlap"]
+            if "max_file_size" in cli_overrides:
+                cls.MAX_FILE_SIZE = cli_overrides["max_file_size"]
+            if "search_limit" in cli_overrides:
+                cls.DEFAULT_SEARCH_LIMIT = cli_overrides["search_limit"]
+            if "rrf_k" in cli_overrides:
+                cls.RRF_K = cli_overrides["rrf_k"]
+
+    @classmethod
+    def get_active_profile(cls, project_path: str) -> str:
+        """
+        Get active profile name
+
+        Args:
+            project_path: Project directory path
+
+        Returns:
+            Active profile name
+        """
+        config = cls.load_project_config(project_path)
+        if not config:
+            return "auto"
+
+        active = config.get("active_profile", "auto")
+        if active == "auto":
+            return cls.detect_profile(project_path, config)
+
+        return active

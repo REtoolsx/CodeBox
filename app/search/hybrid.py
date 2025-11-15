@@ -66,8 +66,6 @@ class HybridSearch:
         limit: int,
         filters: Optional[Dict]
     ) -> List[Dict]:
-        # Fetch slightly more results than limit for better RRF fusion
-        # Using 1.5x multiplier instead of 2x to reduce overhead
         fetch_limit = int(limit * 1.5)
         vector_results = self._vector_search(query, fetch_limit, filters)
         keyword_results = self._keyword_search(query, fetch_limit, filters)

@@ -14,7 +14,6 @@ logger = get_logger(__name__)
 
 @dataclass
 class SearchResult:
-    """Result of a search operation"""
     results: List[Dict[str, Any]]
     validation: ModelValidationResult
     total_results: int
@@ -22,15 +21,8 @@ class SearchResult:
 
 
 class SearchManager:
-    """Centralized search workflow management for CLI"""
 
     def __init__(self, project_path: Optional[str] = None):
-        """
-        Initialize search manager
-
-        Args:
-            project_path: Project directory path (None uses current directory)
-        """
         if project_path is None:
             project_ctx = ProjectContextManager()
             self.project_path = project_ctx.project_path
@@ -43,12 +35,6 @@ class SearchManager:
         self._embedding_gen: Optional[EmbeddingGenerator] = None
 
     def initialize_search(self) -> Tuple[VectorDatabase, HybridSearch, EmbeddingGenerator]:
-        """
-        Initialize or return cached search engine
-
-        Returns:
-            Tuple of (VectorDatabase, HybridSearch, EmbeddingGenerator)
-        """
         if self._vector_db is None:
             logger.info(f"Initializing search engine for: {self.project_path}")
             self._vector_db, self._hybrid_search, self._embedding_gen = create_search_engine(
@@ -60,12 +46,6 @@ class SearchManager:
         return self._vector_db, self._hybrid_search, self._embedding_gen
 
     def validate_models(self) -> ModelValidationResult:
-        """
-        Validate indexed model vs current search model
-
-        Returns:
-            ModelValidationResult with validation details
-        """
         return ModelValidator.validate_search_models(self.project_path)
 
     def execute_search(
@@ -75,22 +55,6 @@ class SearchManager:
         limit: int = 10,
         validate_model: bool = True
     ) -> SearchResult:
-        """
-        Execute search operation with validation
-
-        Args:
-            query: Search query string
-            mode: Search mode (hybrid, vector, keyword)
-            limit: Maximum number of results
-            validate_model: Whether to validate model compatibility
-
-        Returns:
-            SearchResult with results and metadata
-
-        Raises:
-            ValueError: If search parameters are invalid
-            RuntimeError: If search execution fails
-        """
         import time
 
         if not query or not query.strip():
@@ -105,7 +69,6 @@ class SearchManager:
         try:
             search_start = time.time()
 
-            # Validate models if requested
             validation_result = None
             if validate_model:
                 validation_result = self.validate_models()
@@ -113,10 +76,8 @@ class SearchManager:
                 if validation_result.has_mismatch:
                     logger.warning(validation_result.warning_message)
 
-            # Initialize search engine
             _, hybrid_search, _ = self.initialize_search()
 
-            # Execute search (no language filter, auto-detected during indexing)
             exec_start = time.time()
             results = hybrid_search.search(
                 query=query,
@@ -144,7 +105,6 @@ class SearchManager:
             raise RuntimeError(f"Search execution failed: {str(e)}") from e
 
     def clear_cache(self) -> None:
-        """Clear cached search engine components"""
         self._vector_db = None
         self._hybrid_search = None
         self._embedding_gen = None

@@ -27,7 +27,7 @@ class AppConfig:
     AUTO_SYNC_DEBOUNCE_SECONDS = None
     AUTO_SYNC_BATCH_SIZE = None
     DEFAULT_IGNORE_PATTERNS = None
-    EMBEDDING_BATCH_SIZE = None  # Aşama 3: Memory Optimization
+    EMBEDDING_BATCH_SIZE = None
 
     _current_project_path = None
     _config_loaded = False
@@ -284,7 +284,7 @@ class AppConfig:
                 cls.DEFAULT_SEARCH_LIMIT = profile_settings.get("search_limit", 50)
                 cls.RRF_K = profile_settings.get("rrf_k", 60)
                 cls.CLI_CONTENT_PREVIEW_LENGTH = profile_settings.get("preview_length", cls.CLI_CONTENT_PREVIEW_LENGTH)
-                cls.EMBEDDING_BATCH_SIZE = profile_settings.get("embedding_batch_size", 100)  # Aşama 3
+                cls.EMBEDDING_BATCH_SIZE = profile_settings.get("embedding_batch_size", 100)
 
     @classmethod
     def load_project_config(cls, project_path: str) -> Optional[dict]:

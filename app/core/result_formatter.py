@@ -52,21 +52,6 @@ def process_cli_results(
     full_content: bool = False,
     max_content_length: int = 10000
 ) -> List[Dict[str, Any]]:
-    """
-    Process search results for CLI output format
-
-    Args:
-        results: Raw search results
-        mode: Search mode (hybrid, vector, keyword)
-        project_path: Project directory path
-        context: Number of context lines before/after
-        preview_length: Length of content preview
-        full_content: Whether to include full content
-        max_content_length: Maximum content length when full_content=True
-
-    Returns:
-        List of processed result dictionaries
-    """
     processed_results = []
 
     for idx, r in enumerate(results):
@@ -87,7 +72,6 @@ def process_cli_results(
             "score": calculate_score(r, mode, idx + 1, len(results))
         }
 
-        # Add metadata fields (Schema v2.5)
         metadata_fields = {
             "signature": r.get("signature", ""),
             "parameters": r.get("parameters", ""),
@@ -101,14 +85,12 @@ def process_cli_results(
             "calls": r.get("calls", "")
         }
 
-        # Only include non-empty metadata fields
         for key, value in metadata_fields.items():
-            if value:  # Include if not empty string or 0 (for scope_depth we keep 0)
+            if value:
                 result_dict[key] = value
-            elif key == "scope_depth":  # Always include scope_depth even if 0
+            elif key == "scope_depth":
                 result_dict[key] = value
 
-        # Add context lines if requested
         if context > 0:
             lines_before, lines_after = get_context_lines(
                 r.get("file_path"),
@@ -134,17 +116,6 @@ def add_context_to_result(
     context: int,
     project_path: str
 ) -> Dict[str, Any]:
-    """
-    Add context lines to a single result
-
-    Args:
-        result: Single search result
-        context: Number of context lines before/after
-        project_path: Project directory path
-
-    Returns:
-        Result dictionary with added context
-    """
     if context <= 0:
         return result
 

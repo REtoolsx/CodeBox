@@ -283,12 +283,10 @@ class VectorDatabase:
             return {"count": 0}
 
     def get_language_breakdown(self) -> Dict[str, int]:
-        """Aşama 1: Get language breakdown from table"""
         if self.table is None:
             return {}
 
         try:
-            # Query unique languages and count
             df = self.table.to_pandas()
             if 'language' not in df.columns:
                 return {}
@@ -301,7 +299,6 @@ class VectorDatabase:
             return {}
 
     def get_chunk_type_breakdown(self) -> Dict[str, int]:
-        """Aşama 1: Get chunk type breakdown from table"""
         if self.table is None:
             return {}
 
@@ -318,7 +315,6 @@ class VectorDatabase:
             return {}
 
     def get_database_size_mb(self) -> float:
-        """Aşama 1: Get database size in MB"""
         try:
             if not self.db_path.exists():
                 return 0.0

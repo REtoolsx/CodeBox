@@ -46,7 +46,6 @@ class FileProcessor:
             size_bytes = file_stat.st_size if file_stat else None
             modified_at = datetime.fromtimestamp(file_stat.st_mtime).isoformat() if file_stat else None
 
-            # Check file size before reading into memory
             if size_bytes and size_bytes > AppConfig.MAX_FILE_SIZE:
                 size_mb = size_bytes / (1024 * 1024)
                 return ProcessedFileResult(

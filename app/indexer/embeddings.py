@@ -36,12 +36,10 @@ class EmbeddingGenerator:
         self._init_model()
 
     def _get_cache_path(self) -> Path:
-        """Get cache file path for current model"""
         model_hash = hashlib.md5(self.model_name.encode()).hexdigest()[:16]
         return self._cache_dir / f"{model_hash}.pkl"
 
     def _save_model_cache(self):
-        """Save model to cache"""
         if self.model is None:
             return
 
@@ -50,16 +48,9 @@ class EmbeddingGenerator:
             with open(cache_path, 'wb') as f:
                 pickle.dump(self.model, f, protocol=pickle.HIGHEST_PROTOCOL)
         except Exception:
-            # Cache save failure shouldn't break the app
             pass
 
     def _load_model_cache(self) -> bool:
-        """
-        Load model from cache if available
-
-        Returns:
-            True if successfully loaded from cache, False otherwise
-        """
         cache_path = self._get_cache_path()
         if not cache_path.exists():
             return False
@@ -69,7 +60,6 @@ class EmbeddingGenerator:
                 self.model = pickle.load(f)
             return True
         except Exception:
-            # Cache corrupted or incompatible - delete it
             try:
                 cache_path.unlink()
             except Exception:
@@ -93,14 +83,11 @@ class EmbeddingGenerator:
             self.model = None
             return
 
-        # Try to load from cache first
         if self._load_model_cache():
             return
 
-        # Cache miss - load model normally
         try:
             self.model = SentenceTransformer(self.model_name)
-            # Save to cache for next time
             self._save_model_cache()
 
         except Exception:

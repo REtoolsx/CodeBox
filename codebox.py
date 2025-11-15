@@ -46,7 +46,6 @@ def run_cli(args):
 
 def main():
     try:
-        # Fix Windows console encoding for Unicode support
         import sys
         if hasattr(sys.stdout, 'reconfigure'):
             sys.stdout.reconfigure(encoding='utf-8')
@@ -56,7 +55,6 @@ def main():
 
     try:
         AppConfig.init_directories()
-        # Load configuration from .codebox.config.json
         AppConfig.ensure_config_loaded()
 
         parser = argparse.ArgumentParser(

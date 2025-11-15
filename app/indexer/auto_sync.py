@@ -257,15 +257,12 @@ class AutoSyncWorker(threading.Thread):
         return len(chunks)
 
     def _should_process(self, file_path: str) -> bool:
-        """Check if file should be processed (auto-detect from Pygments)"""
         path = Path(file_path)
 
-        # Try to detect language using parser
         language = self.parser.get_language_from_extension(str(path))
         if not language:
             return False
 
-        # Check ignore patterns
         path_str = str(path)
         for pattern in AppConfig.DEFAULT_IGNORE_PATTERNS:
             if pattern in path_str:
@@ -274,8 +271,6 @@ class AutoSyncWorker(threading.Thread):
         return True
 
     def _get_watch_patterns(self) -> list:
-        """Get watch patterns for all supported file extensions"""
-        # Get all supported extensions from parser
         supported_exts = self.parser.get_all_supported_extensions()
         return [f"*{ext}" for ext in supported_exts]
 

@@ -24,7 +24,6 @@ class IndexingCallbacks:
         return False
 
     def on_file_processed(self, filename: str, status: str, chunks: int):
-        """Aşama 4: Called when a file is processed (status: 'indexed', 'failed', 'skipped')"""
         pass
 
 
@@ -38,7 +37,6 @@ class IndexingResult:
         self.database_location: str = ""
         self.project_path: str = ""
 
-        # Aşama 1: Index Stats
         self.indexed_files_count: int = 0
         self.failed_files_count: int = 0
         self.skipped_files_count: int = 0
@@ -46,8 +44,7 @@ class IndexingResult:
         self.embedding_time_ms: float = 0.0
         self.language_breakdown: Dict[str, int] = {}
 
-        # Aşama 2: Error Tracking
-        self.failed_files: List[Dict[str, str]] = []  # [{file, error_type, message}]
+        self.failed_files: List[Dict[str, str]] = []
         self.skipped_files: List[str] = []
         self.indexed_files: List[str] = []
 
@@ -63,7 +60,6 @@ class CoreIndexer:
         result = IndexingResult()
         callbacks = callbacks or IndexingCallbacks()
 
-        # Aşama 1: Processing time tracking
         processing_start = time.time()
 
         try:
@@ -100,7 +96,6 @@ class CoreIndexer:
                 result.success = True
                 return result
 
-            # Aşama 3: Memory Opt - Batch size from config
             EMBEDDING_BATCH_SIZE = AppConfig.EMBEDDING_BATCH_SIZE or 100
             all_chunks = []
 
@@ -120,16 +115,14 @@ class CoreIndexer:
                     size_bytes = file_stat.st_size
                     modified_at = datetime.fromtimestamp(file_stat.st_mtime).isoformat()
 
-                    # Aşama 2: Error Tracking - Size check
                     if size_bytes > AppConfig.MAX_FILE_SIZE:
                         size_mb = size_bytes / (1024 * 1024)
                         result.skipped_files.append(str(file_path.relative_to(self.project_path)))
                         result.skipped_files_count += 1
                         callbacks.on_log(f"Skipping {file_path.name} (file too large: {size_mb:.1f}MB)")
-                        callbacks.on_file_processed(file_path.name, "skipped", 0)  # Aşama 4
+                        callbacks.on_file_processed(file_path.name, "skipped", 0)
                         continue
 
-                    # Aşama 2: Error Tracking - Encoding error
                     try:
                         with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                             content = f.read()
@@ -141,10 +134,9 @@ class CoreIndexer:
                         })
                         result.failed_files_count += 1
                         callbacks.on_log(f"Failed {file_path.name} (encoding error): {str(e)}")
-                        callbacks.on_file_processed(file_path.name, "failed", 0)  # Aşama 4
+                        callbacks.on_file_processed(file_path.name, "failed", 0)
                         continue
 
-                    # Aşama 2: Error Tracking - Parse error
                     parse_result = parser.parse_file(str(file_path), content)
                     if not parse_result:
                         result.failed_files.append({
@@ -154,7 +146,7 @@ class CoreIndexer:
                         })
                         result.failed_files_count += 1
                         callbacks.on_log(f"Failed {file_path.name} (parse failed)")
-                        callbacks.on_file_processed(file_path.name, "failed", 0)  # Aşama 4
+                        callbacks.on_file_processed(file_path.name, "failed", 0)
                         continue
 
                     chunks = chunker.chunk_code(
@@ -167,7 +159,7 @@ class CoreIndexer:
                     if not chunks:
                         result.skipped_files.append(str(file_path.relative_to(self.project_path)))
                         result.skipped_files_count += 1
-                        callbacks.on_file_processed(file_path.name, "skipped", 0)  # Aşama 4
+                        callbacks.on_file_processed(file_path.name, "skipped", 0)
                         continue
 
                     file_imports = parse_result.get('imports', [])
@@ -180,21 +172,18 @@ class CoreIndexer:
 
                     all_chunks.extend(chunks)
 
-                    # Aşama 1: Language breakdown tracking
                     language = parse_result['language']
                     result.language_breakdown[language] = result.language_breakdown.get(language, 0) + 1
 
-                    # Aşama 2: Track indexed file
                     result.indexed_files.append(str(file_path.relative_to(self.project_path)))
                     result.indexed_files_count += 1
 
                     callbacks.on_log(f"Processed {file_path.name}: {len(chunks)} chunks (total buffered: {len(all_chunks)})")
-                    callbacks.on_file_processed(file_path.name, "indexed", len(chunks))  # Aşama 4
+                    callbacks.on_file_processed(file_path.name, "indexed", len(chunks))
 
                     if len(all_chunks) >= EMBEDDING_BATCH_SIZE:
                         chunk_texts = [chunk.content for chunk in all_chunks]
 
-                        # Aşama 1: Embedding time tracking
                         embed_start = time.time()
                         embeddings = embedding_gen.generate_embeddings(chunk_texts)
                         total_embedding_time += (time.time() - embed_start)
@@ -209,7 +198,6 @@ class CoreIndexer:
                         all_chunks = []
 
                 except PermissionError as e:
-                    # Aşama 2: Permission error tracking
                     result.failed_files.append({
                         'file': str(file_path.relative_to(self.project_path)),
                         'error_type': 'permission_error',
@@ -217,10 +205,9 @@ class CoreIndexer:
                     })
                     result.failed_files_count += 1
                     callbacks.on_log(f"Failed {file_path.name} (permission denied): {str(e)}")
-                    callbacks.on_file_processed(file_path.name, "failed", 0)  # Aşama 4
+                    callbacks.on_file_processed(file_path.name, "failed", 0)
 
                 except Exception as e:
-                    # Aşama 2: Unknown error tracking
                     result.failed_files.append({
                         'file': str(file_path.relative_to(self.project_path)),
                         'error_type': 'unknown',
@@ -228,14 +215,13 @@ class CoreIndexer:
                     })
                     result.failed_files_count += 1
                     callbacks.on_log(f"Failed {file_path.name} (error): {str(e)}")
-                    callbacks.on_file_processed(file_path.name, "failed", 0)  # Aşama 4
+                    callbacks.on_file_processed(file_path.name, "failed", 0)
                     logger.warning(f"Failed to index {file_path}: {e}")
 
             if all_chunks:
                 callbacks.on_log(f"Processing final batch: {len(all_chunks)} chunks")
                 chunk_texts = [chunk.content for chunk in all_chunks]
 
-                # Aşama 1: Embedding time tracking for final batch
                 embed_start = time.time()
                 embeddings = embedding_gen.generate_embeddings(chunk_texts)
                 total_embedding_time += (time.time() - embed_start)
@@ -257,7 +243,6 @@ class CoreIndexer:
             result.embedding_model = embedding_gen.model_name
             result.database_location = str(vector_db.db_path)
 
-            # Aşama 1: Finalize stats
             result.processing_time_ms = (time.time() - processing_start) * 1000
             result.embedding_time_ms = total_embedding_time * 1000
 

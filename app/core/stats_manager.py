@@ -26,7 +26,6 @@ class StatsManager:
 
     @staticmethod
     def get_language_breakdown(project_path: Optional[str] = None) -> Dict[str, int]:
-        """Aşama 1: Get language breakdown from vector database"""
         if project_path is None:
             project_manager = ProjectManager()
             project_path = project_manager.get_current_project_path()
@@ -36,7 +35,6 @@ class StatsManager:
 
     @staticmethod
     def get_advanced_stats(project_path: Optional[str] = None) -> Dict[str, Any]:
-        """Aşama 1: Get detailed indexing statistics"""
         if project_path is None:
             project_manager = ProjectManager()
             project_path = project_manager.get_current_project_path()
@@ -48,7 +46,6 @@ class StatsManager:
         db_stats = vector_db.get_stats()
         total_chunks = db_stats.get('count', 0)
 
-        # Calculate average chunks per file
         total_files = sum(language_breakdown.values()) if language_breakdown else 0
         avg_chunks_per_file = (total_chunks / total_files) if total_files > 0 else 0
 

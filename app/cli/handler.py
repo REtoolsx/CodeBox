@@ -104,7 +104,6 @@ class CLIHandler:
 
             indexing_ctx = IndexingManager.prepare_indexing(project_path)
 
-            # Aşama 4: Progress bar with tqdm
             class ProgressBarCallbacks(IndexingCallbacks):
                 def __init__(self):
                     self.pbar = None
@@ -158,7 +157,6 @@ class CLIHandler:
                 "chunks_indexed": result.total_chunks,
                 "embedding_model": result.embedding_model,
                 "database_location": result.database_location,
-                # Aşama 1 & 2: Stats and Error Tracking
                 "indexed_files": result.indexed_files_count,
                 "failed_files": result.failed_files_count,
                 "skipped_files": result.skipped_files_count,

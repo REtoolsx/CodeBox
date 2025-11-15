@@ -61,8 +61,8 @@ python codebox.py search "database" --preview-length 300
 
 - 🔍 **Hybrid Search**: Vector + Keyword search (RRF fusion)
 - 🌳 **AST-based Parsing**: Semantic code analysis with Tree-sitter
-- 🤖 **Auto Language Detection**: Powered by Pygments (supports 500+ languages, tree-sitter parsers for 12 core languages)
-- 🗂️ **Core Languages**: Python, JS, TS, Java, C++, C#, Go, Rust, HTML, CSS, JSON, YAML
+- 🤖 **Auto Language Detection**: Powered by Pygments (supports 597+ languages, tree-sitter parsers for 12 core languages)
+- 🗂️ **Core Languages**: Python, JS/JSX, TS/TSX, Java, C++, C#, Go, Rust, HTML, CSS, JSON, YAML
 - ⚡ **Fast**: Optimized vector search with LanceDB
 - 🤖 **LLM Ready**: JSON output optimized for Claude Code and other LLMs
 - 📄 **Full Content Support**: Truncation control and full code viewing
@@ -102,7 +102,7 @@ python codebox.py index <path>
 Note:
 - Automatically detects all supported programming languages using Pygments
 - Each indexing automatically clears and recreates the project directory for a clean start
-- Supports 12 core languages with tree-sitter parsing: Python, JavaScript, TypeScript, Java, C++, C#, Go, Rust, HTML, CSS, JSON, YAML
+- Supports 12 core languages with tree-sitter parsing: Python, JavaScript/JSX, TypeScript/TSX, Java, C++, C#, Go, Rust, HTML, CSS, JSON, YAML
 ```
 
 ### Stats
@@ -125,101 +125,11 @@ CodeBox/
 └── .lancedb/             # Database (auto-created)
 ```
 
-## 🛠️ Technology Stack
-
-- **CLI**: argparse + JSON output
-- **Vector DB**: LanceDB
-- **Parser**: tree-sitter (multi-language)
-- **Embeddings**: sentence-transformers
-- **Search**: Hybrid (Vector + Keyword + RRF)
-
-## 📝 Requirements
-
-- Python 3.10+
-- Windows 10/11 (Linux/Mac supported)
-
 ---
 
 ## 🚧 Roadmap / TODO
 
-### Phase 3.1: Basic Metadata ✅ (v2.0 - Completed)
-
-**Breaking Change:** All projects need to be reindexed.
-
-#### Completed Features:
-
-1. **node_name Field** ✅
-   - Added `node_name` field to database schema
-   - Function/class names stored as metadata
-   - Provides filtering and query convenience
-
-2. **File Metadata** ✅
-   - Added file size (size_bytes)
-   - Added last modified date (modified_at)
-   - Relative path information available
-
-3. **Schema Version Control** ✅
-   - Added schema versioning system
-   - Version information stored in metadata
-   - Version display available in stats command
-
-#### Note:
-Due to schema changes, all projects need to be reindexed:
-```bash
-# Reindex your project
-python codebox.py index /path/to/project
-```
-
----
-
-### Phase 3.2: Semantic Enrichment ✅ (v2.1 - Completed)
-
-**Supported Languages:** Python, JavaScript, TypeScript
-
----
-
-#### Phase 3.2.1: Function Signatures ✅ (v2.4 - Completed)
-
-**Breaking Change:** All projects need to be reindexed.
-
-**Features:**
-- Function/method signatures stored in database (Python, TypeScript, JavaScript)
-- Parameters with type information
-- Return type annotations
-- AST-based extraction (always-on)
-
-**Database Fields Added:**
-- `signature` - Full function signature
-- `parameters` - JSON array of parameters
-- `return_type` - Return type annotation
-
-**Note:** Reindex projects: `python codebox.py index /path/to/project`
-
----
-
-#### Phase 3.2.2: Docstrings ✅ (v2.1 - Completed)
-
-**Breaking Change:** All projects need to be reindexed.
-
-**Features:**
-- Python docstrings (triple-quoted strings)
-- JavaScript/TypeScript JSDoc comments (/** ... */)
-- AST-based extraction (always-on)
-- Supports function, class, and method docstrings
-
-**Database Field Added:**
-- `docstring` - Documentation string/JSDoc comment
-
-**Implementation:**
-- Python: Extracts first string statement in function/class body
-- JavaScript/TypeScript: Extracts preceding /** ... */ comment
-- Stored as-is for maximum flexibility
-
-**Note:** Reindex projects: `python codebox.py index /path/to/project`
-
----
-
-#### Phase 3.2.3: Decorator & Imports (Planned - Future)
+### Phase 3.2.3: Decorator & Imports (Planned - Future)
 - Decorator tracking, import dependencies
 - **Estimated:** 1-2 weeks
 

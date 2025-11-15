@@ -46,41 +46,6 @@ class ValidationHelpers:
             return False
 
     @staticmethod
-    def validate_languages(languages: List[str], raise_error: bool = True) -> List[str]:
-        """
-        Validate and filter language list to only supported languages
-
-        Args:
-            languages: List of language codes
-            raise_error: If True, raises ValueError if no valid languages
-
-        Returns:
-            List of valid language codes
-
-        Raises:
-            ValueError: If no valid languages and raise_error is True
-        """
-        if not languages:
-            if raise_error:
-                raise ValueError("Language list cannot be empty")
-            return []
-
-        supported_langs = set(AppConfig.SUPPORTED_LANGUAGES.keys())
-        valid_languages = [lang for lang in languages if lang in supported_langs]
-
-        if not valid_languages:
-            if raise_error:
-                raise ValueError("No valid languages found in the provided list")
-            return []
-
-        # Log filtered languages
-        invalid_langs = set(languages) - set(valid_languages)
-        if invalid_langs:
-            logger.warning(f"Filtered out unsupported languages: {', '.join(invalid_langs)}")
-
-        return valid_languages
-
-    @staticmethod
     def validate_search_params(
         query: str,
         mode: str,

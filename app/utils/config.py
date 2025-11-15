@@ -63,19 +63,13 @@ class AppConfig:
     DEFAULT_IGNORE_PATTERNS = [
         '__pycache__',
         '*.pyc',
-        '.git',
         'node_modules',
-        '.next',
         'dist',
         'build',
-        '.lancedb',
-        '.vscode',
-        '.idea',
         '*.min.js',
         '*.min.css',
         'venv',
-        'env',
-        '.env'
+        'env'
     ]
 
     @classmethod
@@ -323,21 +317,14 @@ class AppConfig:
                 "path_blacklist": [
                     "node_modules",
                     "__pycache__",
-                    ".git",
                     "venv",
                     "env",
-                    ".venv",
                     "dist",
                     "build",
-                    ".next",
-                    ".lancedb",
                     "migrations",
                     "test_data",
                     "vendor",
                     "coverage",
-                    ".pytest_cache",
-                    ".mypy_cache",
-                    ".tox",
                     "htmlcov"
                 ]
             },

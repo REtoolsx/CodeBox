@@ -24,9 +24,15 @@ def should_ignore(file_path: Path, ignore_patterns: List[str] = None, project_pa
     """
     path_str = str(file_path)
 
+    # Auto-ignore hidden directories (starting with .)
+    # Examples: .git, .cache, .vscode, .next, .claude, etc.
+    path_parts = file_path.parts
+    for part in path_parts:
+        if part.startswith('.') and len(part) > 1:
+            return True
+
     # Check config-based path_blacklist if project_path is provided
     if project_path:
-        from app.utils.config import AppConfig
         ignore_config = AppConfig.get_ignore_config(str(project_path))
         path_blacklist = ignore_config.get('path_blacklist', [])
 
@@ -84,7 +90,6 @@ def should_process_file(
     """
     # Check extension_blacklist if project_path is provided
     if project_path:
-        from app.utils.config import AppConfig
         ignore_config = AppConfig.get_ignore_config(str(project_path))
         extension_blacklist = ignore_config.get('extension_blacklist', [])
 

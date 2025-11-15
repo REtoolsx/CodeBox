@@ -149,18 +149,13 @@ class CLIHandler:
             print(f"Auto-detecting all supported languages")
             print()
 
-            # Sync statistics
-            sync_stats = {
-                'total_files': 0,
-                'total_chunks': 0
-            }
-
             # Callback definitions
-            def on_sync_complete(chunks_updated: int):
-                sync_stats['total_files'] += 1
-                sync_stats['total_chunks'] += chunks_updated
+            def on_sync_complete(batch_files: List[str], chunks_updated: int):
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                print(f"[{timestamp}] Synced {sync_stats['total_files']} files, {sync_stats['total_chunks']} chunks updated")
+                if len(batch_files) == 1:
+                    print(f"[{timestamp}] Synced {batch_files[0]}, {chunks_updated} chunks updated")
+                else:
+                    print(f"[{timestamp}] Synced {len(batch_files)} files, {chunks_updated} chunks updated")
 
             # Create and start worker
             worker = AutoSyncWorker(
@@ -172,7 +167,7 @@ class CLIHandler:
             def signal_handler(sig, frame):
                 print("\n\nStopping auto-sync...")
                 worker.stop()
-                print(f"Auto-sync stopped. Total: {sync_stats['total_files']} files synced, {sync_stats['total_chunks']} chunks updated")
+                print("Auto-sync stopped.")
                 sys.exit(0)
 
             signal.signal(signal.SIGINT, signal_handler)

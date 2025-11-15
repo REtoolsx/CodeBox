@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Optional, Callable
+from typing import Dict, Optional, Callable, List
 from datetime import datetime, timedelta
 import time
 import traceback
@@ -56,7 +56,7 @@ class AutoSyncWorker(threading.Thread):
         project_path: str,
         on_file_changed: Optional[Callable[[str, str], None]] = None,
         on_sync_started: Optional[Callable[[int], None]] = None,
-        on_sync_complete: Optional[Callable[[int], None]] = None,
+        on_sync_complete: Optional[Callable[[List[str], int], None]] = None,
         on_sync_error: Optional[Callable[[str, str], None]] = None,
         on_health_status: Optional[Callable[[dict], None]] = None
     ):
@@ -163,12 +163,14 @@ class AutoSyncWorker(threading.Thread):
         total_chunks = 0
         success_count = 0
         error_count = 0
+        batch_files = []
 
         for file_path, change_type in batch:
             try:
                 chunks_updated = self._update_file(file_path, change_type)
                 total_chunks += chunks_updated
                 success_count += 1
+                batch_files.append(file_path)
 
                 self.pending_changes.pop(file_path, None)
             except Exception as e:
@@ -184,8 +186,8 @@ class AutoSyncWorker(threading.Thread):
 
         self._emit_health_status()
 
-        if self.on_sync_complete:
-            self.on_sync_complete(total_chunks)
+        if self.on_sync_complete and batch_files:
+            self.on_sync_complete(batch_files, total_chunks)
 
     def _emit_health_status(self):
         status = {

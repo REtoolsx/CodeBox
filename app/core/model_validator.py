@@ -21,6 +21,35 @@ class ModelValidator:
     """Centralized model validation for search operations"""
 
     @staticmethod
+    def _normalize_model_name(model_name: Optional[str]) -> Optional[str]:
+        """
+        Normalize model name to full format for comparison
+
+        Args:
+            model_name: Model name (short or full)
+
+        Returns:
+            Normalized full model name
+        """
+        if not model_name:
+            return None
+
+        # Check if it's a known model key
+        model_info = AppConfig.get_embedding_model_info(model_name)
+        if model_info:
+            return model_info['full_name']
+
+        # Check if it's already a full name by looking through all models
+        for key, info in AppConfig.AVAILABLE_EMBEDDING_MODELS.items():
+            if model_name == info['full_name']:
+                return model_name
+            if model_name == key:
+                return info['full_name']
+
+        # Custom model or unknown - return as is
+        return model_name
+
+    @staticmethod
     def validate_search_models(project_path: str) -> ModelValidationResult:
         """
         Validate that indexed model matches current search model
@@ -35,7 +64,15 @@ class ModelValidator:
         indexed_model = metadata.get("embedding_model")
         current_model = AppConfig.get_embedding_model()
 
-        has_mismatch = bool(indexed_model and indexed_model != current_model)
+        # Normalize both models for comparison
+        normalized_indexed = ModelValidator._normalize_model_name(indexed_model)
+        normalized_current = ModelValidator._normalize_model_name(current_model)
+
+        has_mismatch = bool(
+            normalized_indexed and
+            normalized_current and
+            normalized_indexed != normalized_current
+        )
         warning_message = None
 
         if has_mismatch:

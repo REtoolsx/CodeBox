@@ -80,8 +80,7 @@ class StatsManager:
 
         return {
             'current_model': current_model,
-            'indexed_model': indexed_model,
-            'schema_version': metadata.get("schema_version", "1.0")
+            'indexed_model': indexed_model
         }
 
     @staticmethod
@@ -104,7 +103,6 @@ class StatsManager:
             'database': StatsManager.get_database_stats(project_path),
             'model': StatsManager.get_model_info(project_path),
             'version': {
-                'app_version': AppConfig.APP_VERSION,
-                'schema_version': AppConfig.SCHEMA_VERSION
+                'app_version': AppConfig.APP_VERSION
             }
         }

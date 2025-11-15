@@ -43,6 +43,11 @@ python codebox.py auto-sync
 
 - **Hybrid Search**: Vector + Keyword search with RRF fusion
 - **AST Parsing**: Tree-sitter support for 12 core languages (Python, JS/JSX, TS/TSX, Java, C++, C#, Go, Rust, HTML, CSS, JSON, YAML)
+  - **Function/Class signatures** with parameters and return types
+  - **Decorators & Annotations** (@decorator, @pytest.fixture, etc.)
+  - **Import Dependencies** tracking across files
+  - **Scope Hierarchy** (parent classes, nested functions)
+  - **Call Graph** (same-file function call tracking)
 - **Auto Language Detection**: Pygments support for 597+ languages
 - **Vector Database**: LanceDB for fast similarity search
 - **JSON Output**: Optimized for LLM integration
@@ -66,39 +71,34 @@ CodeBox/
 
 ## 🚧 Roadmap / TODO
 
-### Phase 3.2.3: Decorator & Imports (Planned - Future)
-- Decorator tracking, import dependencies
-- **Estimated:** 1-2 weeks
+### ⚡ Phase 3.3: Relationship Tracking (Partially Completed)
 
----
+#### Completed Features:
 
-### Phase 3.3: Relationship Tracking (Planned - v2.2)
+1. **✅ Parent/Module Info**
+   - Class inheritance hierarchy
+   - Nested scope information (parent_scope, full_path, scope_depth)
+   - Module parent tracking
 
-**Note:** Requires complex static analysis, will be evaluated based on needs.
-
-#### Planned Features:
-
-1. **Call Graph**
+2. **✅ Call Graph (Same-File)**
    - Function call relationships
    - Caller-callee mapping
-   - Same-file call tracking (priority)
+   - Same-file call tracking with line numbers
 
-2. **Parent/Module Info**
-   - Class inheritance hierarchy
-   - Nested scope information
-   - Module parent tracking
+#### Future Features (Not Implemented):
 
 3. **Cross-Reference**
    - Symbol usage tracking
    - Definition-reference links
-   - Multi-file symbol resolution (optional)
+   - Multi-file symbol resolution
+   - **Status:** Requires complex static analysis, deferred based on user feedback
 
-**Estimated Time:** 1-2 months
+---
 
-#### Decision Criteria:
-- Gather feedback from Phase 3.1 and 3.2
-- Identify real needs in LLM usage scenarios
-- Evaluate symbol resolution complexity vs value
+### 📊 Indexed Metadata
+
+- Decorators, Imports, Parent Scope, Full Path, Scope Depth, Call Graph
+- Function signatures, parameters, return types, docstrings
 
 ---
 

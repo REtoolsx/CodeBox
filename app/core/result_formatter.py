@@ -87,6 +87,27 @@ def process_cli_results(
             "score": calculate_score(r, mode, idx + 1, len(results))
         }
 
+        # Add metadata fields (Schema v2.5)
+        metadata_fields = {
+            "signature": r.get("signature", ""),
+            "parameters": r.get("parameters", ""),
+            "return_type": r.get("return_type", ""),
+            "docstring": r.get("docstring", ""),
+            "decorators": r.get("decorators", ""),
+            "imports": r.get("imports", ""),
+            "parent_scope": r.get("parent_scope", ""),
+            "full_path": r.get("full_path", ""),
+            "scope_depth": r.get("scope_depth", 0),
+            "calls": r.get("calls", "")
+        }
+
+        # Only include non-empty metadata fields
+        for key, value in metadata_fields.items():
+            if value:  # Include if not empty string or 0 (for scope_depth we keep 0)
+                result_dict[key] = value
+            elif key == "scope_depth":  # Always include scope_depth even if 0
+                result_dict[key] = value
+
         # Add context lines if requested
         if context > 0:
             lines_before, lines_after = get_context_lines(

@@ -79,6 +79,11 @@ class CoreIndexer:
                 result.success = True
                 return result
 
+            # Batch processing configuration
+            EMBEDDING_BATCH_SIZE = 100  # Process chunks in batches
+            all_chunks = []
+            all_chunk_dicts = []
+
             total_chunks = 0
             for i, file_path in enumerate(files):
                 if callbacks.should_cancel():
@@ -93,12 +98,14 @@ class CoreIndexer:
                     size_bytes = file_stat.st_size
                     modified_at = datetime.fromtimestamp(file_stat.st_mtime).isoformat()
 
+                    # Check file size before reading into memory
+                    if size_bytes > AppConfig.MAX_FILE_SIZE:
+                        size_mb = size_bytes / (1024 * 1024)
+                        callbacks.on_log(f"Skipping {file_path.name} (file too large: {size_mb:.1f}MB)")
+                        continue
+
                     with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                         content = f.read()
-
-                    if len(content) > AppConfig.MAX_FILE_SIZE:
-                        callbacks.on_log(f"Skipping {file_path.name} (too large)")
-                        continue
 
                     parse_result = parser.parse_file(str(file_path), content)
                     if not parse_result:
@@ -115,28 +122,53 @@ class CoreIndexer:
                     if not chunks:
                         continue
 
+                    file_imports = parse_result.get('imports', [])
+                    imports_str = ','.join(file_imports) if file_imports else ''
+
                     for chunk in chunks:
                         chunk.size_bytes = size_bytes
                         chunk.modified_at = modified_at
+                        chunk.imports = imports_str
 
-                    chunk_texts = [chunk.content for chunk in chunks]
-                    embeddings = embedding_gen.generate_embeddings(chunk_texts)
+                    # Accumulate chunks for batch processing
+                    all_chunks.extend(chunks)
+                    callbacks.on_log(f"Processed {file_path.name}: {len(chunks)} chunks (total buffered: {len(all_chunks)})")
 
-                    chunk_dicts = [chunk.to_dict() for chunk in chunks]
-                    vector_db.add_chunks(chunk_dicts, embeddings)
+                    # Process batch when we reach EMBEDDING_BATCH_SIZE
+                    if len(all_chunks) >= EMBEDDING_BATCH_SIZE:
+                        chunk_texts = [chunk.content for chunk in all_chunks]
+                        embeddings = embedding_gen.generate_embeddings(chunk_texts)
 
-                    total_chunks += len(chunks)
-                    callbacks.on_log(f"Indexed {file_path.name}: {len(chunks)} chunks")
+                        chunk_dicts = [chunk.to_dict() for chunk in all_chunks]
+                        is_last_batch = (i == len(files) - 1)
+                        vector_db.add_chunks(chunk_dicts, embeddings, update_fts=is_last_batch)
+
+                        total_chunks += len(all_chunks)
+                        callbacks.on_log(f"Batch indexed: {len(all_chunks)} chunks")
+
+                        # Clear batch
+                        all_chunks = []
 
                 except Exception as e:
                     callbacks.on_log(f"Error indexing {file_path.name}: {str(e)}")
                     logger.warning(f"Failed to index {file_path}: {e}")
 
+            # Process remaining chunks (final batch)
+            if all_chunks:
+                callbacks.on_log(f"Processing final batch: {len(all_chunks)} chunks")
+                chunk_texts = [chunk.content for chunk in all_chunks]
+                embeddings = embedding_gen.generate_embeddings(chunk_texts)
+
+                chunk_dicts = [chunk.to_dict() for chunk in all_chunks]
+                vector_db.add_chunks(chunk_dicts, embeddings, update_fts=True)
+
+                total_chunks += len(all_chunks)
+                callbacks.on_log(f"Final batch indexed: {len(all_chunks)} chunks")
+
             model_info = AppConfig.get_embedding_model_info(embedding_gen.model_name)
             metadata = AppConfig.load_project_metadata(str(self.project_path))
             metadata["embedding_model"] = embedding_gen.model_name
             metadata["embedding_dim"] = model_info.get("dim") if model_info else None
-            metadata["schema_version"] = AppConfig.SCHEMA_VERSION
             AppConfig.save_project_metadata(str(self.project_path), metadata)
 
             result.success = True

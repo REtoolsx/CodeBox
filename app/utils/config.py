@@ -8,7 +8,6 @@ import json
 class AppConfig:
     APP_NAME = "CodeBox - Your Project & LLM Friend"
     APP_VERSION = "2.2.0"
-    SCHEMA_VERSION = "2.1"
 
     HOME_DIR = Path.home() / ".codebox"
     GLOBAL_CONFIG_FILE = HOME_DIR / "config.json"

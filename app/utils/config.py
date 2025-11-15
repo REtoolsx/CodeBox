@@ -9,10 +9,10 @@ class ConfigMeta(type):
     _property_names = {
         'APP_NAME', 'APP_VERSION', 'DB_TABLE_NAME', 'DEFAULT_CHUNK_SIZE',
         'DEFAULT_CHUNK_OVERLAP', 'MAX_FILE_SIZE', 'DEFAULT_SEARCH_LIMIT',
-        'RRF_K', 'CLI_CONTENT_PREVIEW_LENGTH', 'CLI_MAX_CONTENT_LENGTH',
-        'EMBEDDING_MODEL', 'EMBEDDING_DIM', 'AVAILABLE_EMBEDDING_MODELS',
-        'AUTO_SYNC_ENABLED', 'AUTO_SYNC_DEBOUNCE_SECONDS', 'AUTO_SYNC_BATCH_SIZE',
-        'DEFAULT_IGNORE_PATTERNS', 'EMBEDDING_BATCH_SIZE'
+        'RRF_K', 'CLI_CONTENT_PREVIEW_LENGTH', 'CLI_CONTENT_PREVIEW_LINES',
+        'CLI_MAX_CONTENT_LENGTH', 'EMBEDDING_MODEL', 'EMBEDDING_DIM',
+        'AVAILABLE_EMBEDDING_MODELS', 'AUTO_SYNC_ENABLED', 'AUTO_SYNC_DEBOUNCE_SECONDS',
+        'AUTO_SYNC_BATCH_SIZE', 'DEFAULT_IGNORE_PATTERNS', 'EMBEDDING_BATCH_SIZE'
     }
 
     def __getattribute__(cls, name):
@@ -35,7 +35,8 @@ class AppConfig(metaclass=ConfigMeta):
     _APP_NAME = "CodeBox - Your Project & LLM Friend"
     _APP_VERSION = "2.2.0"
     _DB_TABLE_NAME = "code_chunks"
-    _CLI_CONTENT_PREVIEW_LENGTH = 200
+    _CLI_CONTENT_PREVIEW_LENGTH = 800
+    _CLI_CONTENT_PREVIEW_LINES = 20
     _CLI_MAX_CONTENT_LENGTH = 5000
 
     _AUTO_SYNC_ENABLED = False
@@ -111,7 +112,8 @@ class AppConfig(metaclass=ConfigMeta):
             "search_limit": 50,
             "rrf_k": 60,
             "embedding_model": "all-MiniLM-L6-v2",
-            "preview_length": 200,
+            "preview_length": 800,
+            "preview_lines": 20,
             "embedding_batch_size": 100
         },
         "large": {
@@ -122,7 +124,8 @@ class AppConfig(metaclass=ConfigMeta):
             "search_limit": 100,
             "rrf_k": 80,
             "embedding_model": "all-mpnet-base-v2",
-            "preview_length": 300,
+            "preview_length": 1000,
+            "preview_lines": 25,
             "embedding_batch_size": 50
         }
     }
@@ -288,6 +291,7 @@ class AppConfig(metaclass=ConfigMeta):
         cls._DEFAULT_SEARCH_LIMIT = profile_settings.get("search_limit", 50)
         cls._RRF_K = profile_settings.get("rrf_k", 60)
         cls._CLI_CONTENT_PREVIEW_LENGTH = profile_settings.get("preview_length", cls._CLI_CONTENT_PREVIEW_LENGTH)
+        cls._CLI_CONTENT_PREVIEW_LINES = profile_settings.get("preview_lines", cls._CLI_CONTENT_PREVIEW_LINES)
         cls._EMBEDDING_BATCH_SIZE = profile_settings.get("embedding_batch_size", 100)
 
     @classmethod

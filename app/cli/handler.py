@@ -33,7 +33,6 @@ class CLIHandler:
         mode: str = "hybrid",
         limit: int = 10,
         full_content: bool = False,
-        preview_length: int = 200,
         context: int = 0,
         profile: Optional[str] = None,
         output: str = "compact"
@@ -55,12 +54,27 @@ class CLIHandler:
                 validate_model=True
             )
 
+            preview_length = 800
+            preview_lines = 20
+
+            if output == "compact":
+                preview_length = 150
+                preview_lines = 3
+                full_content = False
+            elif output == "standard":
+                preview_length = 800
+                preview_lines = 15
+                full_content = False
+            elif output == "verbose":
+                full_content = True
+
             results_with_context = process_cli_results(
                 results=search_result.results,
                 mode=mode,
                 project_path=project_path,
                 context=context,
                 preview_length=preview_length,
+                preview_lines=preview_lines,
                 full_content=full_content,
                 max_content_length=AppConfig.CLI_MAX_CONTENT_LENGTH,
                 output_format=output

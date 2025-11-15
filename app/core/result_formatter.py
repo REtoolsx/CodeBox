@@ -35,6 +35,66 @@ def _parse_imports_string(imports_str: str) -> List[str]:
     return imports_list
 
 
+def add_truncation_indicator(content: str, total_lines: int, shown_lines: int) -> str:
+    indicator = f"\n... [truncated: showing {shown_lines}/{total_lines} lines]"
+    return content + indicator
+
+
+def detect_code_structure(lines: List[str], max_line_idx: int) -> int:
+    import re
+
+    if max_line_idx >= len(lines):
+        return max_line_idx
+
+    last_line = lines[max_line_idx - 1].strip() if max_line_idx > 0 else ""
+
+    structure_patterns = [
+        r'^\s*(def|class|async\s+def)\s+\w+',
+        r'^\s*(if|for|while|try|with|elif|else)\s*.*:\s*$',
+        r'^\s*@\w+',
+    ]
+
+    for pattern in structure_patterns:
+        if re.match(pattern, last_line):
+            additional_lines = min(5, len(lines) - max_line_idx)
+            return max_line_idx + additional_lines
+
+    return max_line_idx
+
+
+def smart_truncate_code(
+    content: str,
+    max_chars: int = 800,
+    max_lines: int = 20,
+    preserve_structure: bool = True
+) -> Tuple[str, bool, int, int]:
+    if not content:
+        return ("", False, 0, 0)
+
+    lines = content.split('\n')
+
+    if len(content) <= max_chars and len(lines) <= max_lines:
+        return (content, False, len(lines), len(lines))
+
+    truncate_at_line = min(max_lines, len(lines))
+
+    accumulated_chars = 0
+    for i in range(truncate_at_line):
+        accumulated_chars += len(lines[i]) + 1
+        if accumulated_chars > max_chars:
+            truncate_at_line = max(1, i)
+            break
+
+    if preserve_structure and truncate_at_line < len(lines):
+        truncate_at_line = detect_code_structure(lines, truncate_at_line)
+
+    truncated_lines = lines[:truncate_at_line]
+    truncated_content = '\n'.join(truncated_lines)
+
+    is_truncated = truncate_at_line < len(lines)
+    return (truncated_content, is_truncated, truncate_at_line, len(lines))
+
+
 def _format_compact(
     result: Dict[str, Any],
     formatted_content: str,
@@ -63,7 +123,7 @@ def _format_compact(
     if signature:
         compact_result["signature"] = signature
 
-    compact_result["code"] = formatted_content
+    compact_result["code"] = formatted_content.split('\n') if formatted_content else []
 
     return compact_result
 
@@ -93,7 +153,7 @@ def _format_standard(
         "language": language,
         "type": chunk_type,
         "score": round(score, 4),
-        "code": formatted_content
+        "code": formatted_content.split('\n') if formatted_content else []
     }
 
     if node_name:
@@ -141,7 +201,7 @@ def _format_verbose(
             "type": result.get("chunk_type", "code")
         },
         "code": {
-            "content": formatted_content,
+            "content": formatted_content.split('\n') if formatted_content else [],
             "length": content_length,
             "truncated": is_truncated
         },
@@ -243,24 +303,37 @@ def process_cli_results(
     mode: str,
     project_path: str,
     context: int = 0,
-    preview_length: int = 200,
+    preview_length: int = 800,
+    preview_lines: int = 20,
     full_content: bool = False,
     max_content_length: int = 10000,
-    output_format: str = "compact"
+    output_format: str = "compact",
+    smart_truncate: bool = True
 ) -> List[Dict[str, Any]]:
     processed_results = []
 
     for idx, r in enumerate(results):
         raw_content = r.get("content", "")
-        truncated_content = raw_content[:max_content_length] if full_content else raw_content[:preview_length]
 
-        formatted_content = format_content_with_line_numbers(
-            truncated_content,
-            r.get("start_line", 0)
-        )
+        if smart_truncate and not full_content:
+            truncated_content, is_truncated, shown_lines, total_lines = smart_truncate_code(
+                raw_content,
+                max_chars=preview_length,
+                max_lines=preview_lines,
+                preserve_structure=True
+            )
+        else:
+            truncated_content = raw_content[:max_content_length] if full_content else raw_content[:preview_length]
+            is_truncated = len(raw_content) > (max_content_length if full_content else preview_length)
+            shown_lines = 0
+            total_lines = 0
+
+        formatted_content = truncated_content
+
+        if is_truncated and shown_lines > 0:
+            formatted_content = add_truncation_indicator(formatted_content, total_lines, shown_lines)
 
         content_length = len(raw_content)
-        is_truncated = len(raw_content) > (max_content_length if full_content else preview_length)
         score = calculate_score(r, mode, idx + 1, len(results))
 
         if output_format == "compact":

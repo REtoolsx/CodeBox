@@ -17,7 +17,6 @@ def run_cli(args):
             mode=args.mode,
             limit=args.limit,
             full_content=args.full_content,
-            preview_length=args.preview_length,
             context=args.context,
             profile=getattr(args, 'profile', None),
             output=getattr(args, 'output', 'compact')
@@ -67,9 +66,9 @@ Examples:
   python codebox.py search "user authentication"
   python codebox.py search "login function" --mode vector --limit 5
 
-  # LLM-optimized search (with full content & context)
-  python codebox.py search "error handling" --full-content --context 5
-  python codebox.py search "database" --preview-length 300 --limit 15
+  # LLM-optimized search (with different output formats)
+  python codebox.py search "error handling" --output standard --context 5
+  python codebox.py search "database" --output verbose --limit 15
 
   # Stats for current directory
   cd /path/to/your/project
@@ -91,8 +90,6 @@ Examples:
                                     help='Max results (default: 10)')
         search_parser.add_argument('--full-content', action='store_true',
                                     help='Return full code content (not truncated)')
-        search_parser.add_argument('--preview-length', type=int, default=200,
-                                    help='Preview length in characters (default: 200)')
         search_parser.add_argument('--context', type=int, default=0,
                                     help='Number of context lines before/after (default: 0)')
         search_parser.add_argument('--output', choices=['compact', 'standard', 'verbose'],

@@ -1,6 +1,31 @@
 {
   "active_profile": "auto",
 
+  "ignore": {
+    "extension_blacklist": [
+      ".zip", ".tar", ".gz", ".rar", ".7z",
+      ".jpg", ".jpeg", ".png", ".gif", ".svg", ".ico", ".webp",
+      ".mp4", ".avi", ".mkv", ".mov", ".wmv", ".flv",
+      ".mp3", ".wav", ".flac", ".aac", ".ogg",
+      ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+      ".exe", ".dll", ".so", ".dylib", ".bin",
+      ".lock", ".log", ".tmp", ".cache", ".swp"
+    ],
+    "path_blacklist": [
+      "node_modules",
+      "__pycache__",
+      "venv",
+      "env",
+      "dist",
+      "build",
+      "migrations",
+      "test_data",
+      "vendor",
+      "coverage",
+      "htmlcov"
+    ]
+  },
+
   "auto_settings": {
     "thresholds": {
       "medium_max_files": 5000,

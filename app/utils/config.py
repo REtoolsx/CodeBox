@@ -6,74 +6,39 @@ import json
 
 
 class AppConfig:
-    APP_NAME = "CodeBox - Your Project & LLM Friend"
-    APP_VERSION = "2.2.0"
-
+    # Sistem yolları (sabit)
     HOME_DIR = Path.home() / ".codebox"
     GLOBAL_CONFIG_FILE = HOME_DIR / "config.json"
     PROJECTS_DIR = HOME_DIR / "projects"
 
-    DB_TABLE_NAME = "code_chunks"
-
-    DEFAULT_CHUNK_SIZE = 512
-    DEFAULT_CHUNK_OVERLAP = 50
-    MAX_FILE_SIZE = 1024 * 1024
-
-    DEFAULT_SEARCH_LIMIT = 50
-    RRF_K = 60
-
-    CLI_CONTENT_PREVIEW_LENGTH = 200
-    CLI_MAX_CONTENT_LENGTH = 5000
-
+    # Runtime değerleri (JSON'dan yüklenir)
+    APP_NAME = None
+    APP_VERSION = None
+    DB_TABLE_NAME = None
+    DEFAULT_CHUNK_SIZE = None
+    DEFAULT_CHUNK_OVERLAP = None
+    MAX_FILE_SIZE = None
+    DEFAULT_SEARCH_LIMIT = None
+    RRF_K = None
+    CLI_CONTENT_PREVIEW_LENGTH = None
+    CLI_MAX_CONTENT_LENGTH = None
     EMBEDDING_MODEL = None
-    EMBEDDING_DIM = 384
+    EMBEDDING_DIM = None
+    AVAILABLE_EMBEDDING_MODELS = None
+    AUTO_SYNC_ENABLED = None
+    AUTO_SYNC_DEBOUNCE_SECONDS = None
+    AUTO_SYNC_BATCH_SIZE = None
+    DEFAULT_IGNORE_PATTERNS = None
 
-    AVAILABLE_EMBEDDING_MODELS = {
-        'all-MiniLM-L6-v2': {
-            'full_name': 'sentence-transformers/all-MiniLM-L6-v2',
-            'dim': 384,
-            'description': 'Fast & lightweight (default)'
-        },
-        'all-mpnet-base-v2': {
-            'full_name': 'sentence-transformers/all-mpnet-base-v2',
-            'dim': 768,
-            'description': 'Better quality, slower'
-        },
-        'codebert-base': {
-            'full_name': 'microsoft/codebert-base',
-            'dim': 768,
-            'description': 'Code-optimized BERT'
-        },
-        'graphcodebert-base': {
-            'full_name': 'microsoft/graphcodebert-base',
-            'dim': 768,
-            'description': 'Graph-aware code model'
-        },
-        'bge-small-en-v1.5': {
-            'full_name': 'BAAI/bge-small-en-v1.5',
-            'dim': 384,
-            'description': 'Modern general-purpose model'
-        }
-    }
-
-    AUTO_SYNC_ENABLED = False
-    AUTO_SYNC_DEBOUNCE_SECONDS = 2.0
-    AUTO_SYNC_BATCH_SIZE = 10
-
-    DEFAULT_IGNORE_PATTERNS = [
-        '__pycache__',
-        '*.pyc',
-        'node_modules',
-        'dist',
-        'build',
-        '*.min.js',
-        '*.min.css',
-        'venv',
-        'env'
-    ]
+    # Config cache
+    _current_project_path = None
+    _config_loaded = False
 
     @classmethod
     def get_auto_sync_enabled(cls) -> bool:
+        if cls.AUTO_SYNC_ENABLED is None:
+            cls.ensure_config_loaded()
+        # Check global config first (user override)
         config = cls.load_global_config()
         return config.get('auto_sync_enabled', cls.AUTO_SYNC_ENABLED)
 
@@ -82,6 +47,7 @@ class AppConfig:
         config = cls.load_global_config()
         config['auto_sync_enabled'] = enabled
         cls.save_global_config(config)
+        cls.AUTO_SYNC_ENABLED = enabled
 
     @classmethod
     def init_directories(cls):
@@ -190,7 +156,9 @@ class AppConfig:
 
     @classmethod
     def get_embedding_model_info(cls, model_key: str) -> Optional[dict]:
-        return cls.AVAILABLE_EMBEDDING_MODELS.get(model_key)
+        if not cls.AVAILABLE_EMBEDDING_MODELS:
+            cls.ensure_config_loaded()
+        return cls.AVAILABLE_EMBEDDING_MODELS.get(model_key) if cls.AVAILABLE_EMBEDDING_MODELS else None
 
     @classmethod
     def load_indexing_settings(cls):
@@ -264,6 +232,85 @@ class AppConfig:
     def get_language_code_from_display(display_name: str) -> str:
         return display_name.lower().replace(' ', '_')
 
+    # ========== JSON Config Loading ==========
+
+    @classmethod
+    def _load_base_config(cls, config: dict):
+        """
+        Load base configuration values from JSON
+
+        Args:
+            config: Project config dict
+        """
+        # App settings
+        app_config = config.get("app", {})
+        cls.APP_NAME = app_config.get("name", "CodeBox")
+        cls.APP_VERSION = app_config.get("version", "1.0.0")
+        cls.CLI_CONTENT_PREVIEW_LENGTH = app_config.get("cli_preview_length", 200)
+        cls.CLI_MAX_CONTENT_LENGTH = app_config.get("cli_max_content_length", 5000)
+
+        # Database settings
+        db_config = config.get("database", {})
+        cls.DB_TABLE_NAME = db_config.get("table_name", "code_chunks")
+
+        # Auto-sync settings
+        auto_sync_config = config.get("auto_sync", {})
+        cls.AUTO_SYNC_ENABLED = auto_sync_config.get("enabled", False)
+        cls.AUTO_SYNC_DEBOUNCE_SECONDS = auto_sync_config.get("debounce_seconds", 2.0)
+        cls.AUTO_SYNC_BATCH_SIZE = auto_sync_config.get("batch_size", 10)
+
+        # Embedding settings
+        embedding_config = config.get("embedding", {})
+        cls.EMBEDDING_DIM = embedding_config.get("default_dim", 384)
+        cls.AVAILABLE_EMBEDDING_MODELS = embedding_config.get("available_models", {})
+
+        # Ignore patterns
+        ignore_config = config.get("ignore", {})
+        path_blacklist = ignore_config.get("path_blacklist", [])
+        extension_blacklist = ignore_config.get("extension_blacklist", [])
+        cls.DEFAULT_IGNORE_PATTERNS = path_blacklist + extension_blacklist
+
+        cls._config_loaded = True
+
+    @classmethod
+    def ensure_config_loaded(cls, project_path: str = None):
+        """
+        Ensure configuration is loaded from JSON
+
+        Args:
+            project_path: Project directory path (optional, uses cwd if not provided)
+        """
+        if not project_path:
+            project_path = str(Path.cwd().resolve())
+
+        # Reload if project changed or not loaded yet
+        if not cls._config_loaded or cls._current_project_path != project_path:
+            cls._current_project_path = project_path
+            config = cls.load_project_config(project_path)
+
+            if not config:
+                # Create default config
+                cls.create_default_config(project_path)
+                config = cls.load_project_config(project_path)
+
+            if config:
+                cls._load_base_config(config)
+                # Apply active profile
+                active_profile = config.get("active_profile", "auto")
+                if active_profile == "auto":
+                    active_profile = cls.detect_profile(project_path, config)
+
+                profiles = config.get("profiles", {})
+                profile_settings = profiles.get(active_profile, profiles.get("medium", {}))
+
+                # Apply profile settings
+                cls.DEFAULT_CHUNK_SIZE = profile_settings.get("chunk_size", 512)
+                cls.DEFAULT_CHUNK_OVERLAP = profile_settings.get("chunk_overlap", 50)
+                cls.MAX_FILE_SIZE = profile_settings.get("max_file_size", 1048576)
+                cls.DEFAULT_SEARCH_LIMIT = profile_settings.get("search_limit", 50)
+                cls.RRF_K = profile_settings.get("rrf_k", 60)
+                cls.CLI_CONTENT_PREVIEW_LENGTH = profile_settings.get("preview_length", cls.CLI_CONTENT_PREVIEW_LENGTH)
+
     # ========== Profile-Based Configuration ==========
 
     @classmethod
@@ -304,6 +351,50 @@ class AppConfig:
 
         default_config = {
             "active_profile": "auto",
+            "app": {
+                "name": "CodeBox - Your Project & LLM Friend",
+                "version": "2.2.0",
+                "cli_preview_length": 200,
+                "cli_max_content_length": 5000
+            },
+            "database": {
+                "table_name": "code_chunks"
+            },
+            "auto_sync": {
+                "enabled": False,
+                "debounce_seconds": 2.0,
+                "batch_size": 10
+            },
+            "embedding": {
+                "default_dim": 384,
+                "available_models": {
+                    "all-MiniLM-L6-v2": {
+                        "full_name": "sentence-transformers/all-MiniLM-L6-v2",
+                        "dim": 384,
+                        "description": "Fast & lightweight (default)"
+                    },
+                    "all-mpnet-base-v2": {
+                        "full_name": "sentence-transformers/all-mpnet-base-v2",
+                        "dim": 768,
+                        "description": "Better quality, slower"
+                    },
+                    "codebert-base": {
+                        "full_name": "microsoft/codebert-base",
+                        "dim": 768,
+                        "description": "Code-optimized BERT"
+                    },
+                    "graphcodebert-base": {
+                        "full_name": "microsoft/graphcodebert-base",
+                        "dim": 768,
+                        "description": "Graph-aware code model"
+                    },
+                    "bge-small-en-v1.5": {
+                        "full_name": "BAAI/bge-small-en-v1.5",
+                        "dim": 384,
+                        "description": "Modern general-purpose model"
+                    }
+                }
+            },
             "ignore": {
                 "extension_blacklist": [
                     ".zip", ".tar", ".gz", ".rar", ".7z",
@@ -405,14 +496,18 @@ class AppConfig:
             project_path: Project directory path
             cli_overrides: CLI argument overrides (optional)
         """
+        cls._current_project_path = project_path
         config = cls.load_project_config(project_path)
 
         if not config:
-            config = cls.create_default_config(project_path)
+            cls.create_default_config(project_path)
             config = cls.load_project_config(project_path)
 
         if not config:
             return
+
+        # Load base config (app, database, auto_sync, embedding)
+        cls._load_base_config(config)
 
         active_profile = profile_name
         if profile_name == "auto":
@@ -423,10 +518,10 @@ class AppConfig:
 
         cls.DEFAULT_CHUNK_SIZE = profile_settings.get("chunk_size", 512)
         cls.DEFAULT_CHUNK_OVERLAP = profile_settings.get("chunk_overlap", 50)
-        cls.MAX_FILE_SIZE = profile_settings.get("max_file_size", 1024 * 1024)
+        cls.MAX_FILE_SIZE = profile_settings.get("max_file_size", 1048576)
         cls.DEFAULT_SEARCH_LIMIT = profile_settings.get("search_limit", 50)
         cls.RRF_K = profile_settings.get("rrf_k", 60)
-        cls.CLI_CONTENT_PREVIEW_LENGTH = profile_settings.get("preview_length", 200)
+        cls.CLI_CONTENT_PREVIEW_LENGTH = profile_settings.get("preview_length", cls.CLI_CONTENT_PREVIEW_LENGTH)
 
         embedding_model = profile_settings.get("embedding_model")
         if embedding_model and not cls.get_embedding_model():

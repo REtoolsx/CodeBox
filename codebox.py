@@ -56,6 +56,8 @@ def main():
 
     try:
         AppConfig.init_directories()
+        # Load configuration from .codebox.config.json
+        AppConfig.ensure_config_loaded()
 
         parser = argparse.ArgumentParser(
             description="CodeBox - Your Project & LLM Friend (Auto Language Detection)",

@@ -1,6 +1,54 @@
 {
   "active_profile": "auto",
 
+  "app": {
+    "name": "CodeBox - Your Project & LLM Friend",
+    "version": "2.2.0",
+    "cli_preview_length": 200,
+    "cli_max_content_length": 5000
+  },
+
+  "database": {
+    "table_name": "code_chunks"
+  },
+
+  "auto_sync": {
+    "enabled": false,
+    "debounce_seconds": 2.0,
+    "batch_size": 10
+  },
+
+  "embedding": {
+    "default_dim": 384,
+    "available_models": {
+      "all-MiniLM-L6-v2": {
+        "full_name": "sentence-transformers/all-MiniLM-L6-v2",
+        "dim": 384,
+        "description": "Fast & lightweight (default)"
+      },
+      "all-mpnet-base-v2": {
+        "full_name": "sentence-transformers/all-mpnet-base-v2",
+        "dim": 768,
+        "description": "Better quality, slower"
+      },
+      "codebert-base": {
+        "full_name": "microsoft/codebert-base",
+        "dim": 768,
+        "description": "Code-optimized BERT"
+      },
+      "graphcodebert-base": {
+        "full_name": "microsoft/graphcodebert-base",
+        "dim": 768,
+        "description": "Graph-aware code model"
+      },
+      "bge-small-en-v1.5": {
+        "full_name": "BAAI/bge-small-en-v1.5",
+        "dim": 384,
+        "description": "Modern general-purpose model"
+      }
+    }
+  },
+
   "ignore": {
     "extension_blacklist": [
       ".zip", ".tar", ".gz", ".rar", ".7z",

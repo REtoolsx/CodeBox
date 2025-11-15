@@ -3,13 +3,12 @@
 ![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20Mac-lightgrey.svg)
-![PyQt6](https://img.shields.io/badge/GUI-PyQt6-41cd52.svg)
 ![LanceDB](https://img.shields.io/badge/Vector_DB-LanceDB-orange.svg)
 ![Tree-sitter](https://img.shields.io/badge/Parser-Tree--sitter-yellowgreen.svg)
 
-Powerful code indexing and search tool developed with **Python PyQt6**.
+Powerful code indexing and search tool with CLI interface.
 
-**Hybrid Mode:** Both visual interface and terminal usage with GUI + CLI support.
+**CLI-Only Mode:** Terminal-based code indexing and search optimized for LLM integration.
 
 ## 🚀 Quick Start
 
@@ -20,22 +19,9 @@ Powerful code indexing and search tool developed with **Python PyQt6**.
 pip install -r requirements.txt
 ```
 
-### GUI Mode (Default)
+### CLI Commands
 
-```bash
-# Open GUI application
-python codebox.py
-```
-
-1. Go to the **Indexer** tab
-2. **Browse** to select your code project
-3. Select the languages you want to index (checkboxes)
-4. Click the **Start Indexing** button
-5. Switch to the **Search** tab and perform searches
-
-### CLI Mode (For Claude Code)
-
-**Basic Commands:**
+**Basic Usage:**
 ```bash
 # Help
 python codebox.py --help
@@ -74,11 +60,9 @@ python codebox.py search "database" --preview-length 300
 
 - 🔍 **Hybrid Search**: Vector + Keyword search (RRF fusion)
 - 🌳 **AST-based Parsing**: Semantic code analysis with Tree-sitter
-- 🎨 **Syntax Highlighting**: Professional code viewing with QScintilla
 - 🗂️ **Multi-language**: Python, JS, TS, Java, C++, C#, Go, Rust, HTML, CSS, JSON, YAML
 - ⚡ **Fast**: Optimized vector search with LanceDB
-- 🖥️ **Dual Mode**: GUI + CLI (Hybrid Mode)
-- 🤖 **Claude Code Ready**: LLM integration with JSON output
+- 🤖 **LLM Ready**: JSON output optimized for Claude Code and other LLMs
 - 📄 **Full Content Support**: Truncation control and full code viewing
 - 🔗 **Context Lines**: Display lines before/after code chunks
 - ⚙️ **Flexible Output**: Configurable preview length and content limits
@@ -93,12 +77,11 @@ Options:
   --mode {vector,keyword,hybrid}  Search mode (default: hybrid)
   --limit N                       Max results (default: 10)
   --language LANG                 Filter by language
-  --format {json,text}            Output format (default: json)
-
-  # LLM Enhancement Options (Phase 1 & 2)
   --full-content                  Return full code content, not truncated (max 5000 chars)
   --preview-length N              Preview length in characters (default: 200)
   --context N                     Number of context lines before/after chunk (default: 0)
+
+Note: All CLI commands return JSON output for easy LLM integration.
 
 Examples:
   # Basic search
@@ -131,7 +114,8 @@ python codebox.py stats
 ```
 CodeBox/
 ├── app/
-│   ├── gui/              # PyQt6 widgets
+│   ├── cli/              # CLI command handlers
+│   ├── core/             # Core business logic
 │   ├── indexer/          # Parser, embeddings, chunker
 │   ├── search/           # Vector DB, hybrid search
 │   └── utils/            # Config, logger
@@ -142,11 +126,10 @@ CodeBox/
 
 ## 🛠️ Technology Stack
 
-- **GUI**: PyQt6 + QScintilla
 - **CLI**: argparse + JSON output
 - **Vector DB**: LanceDB
 - **Parser**: tree-sitter (multi-language)
-- **Embeddings**: sentence-transformers (model TBD)
+- **Embeddings**: sentence-transformers
 - **Search**: Hybrid (Vector + Keyword + RRF)
 
 ## 📝 Requirements
@@ -188,28 +171,56 @@ python codebox.py index /path/to/project
 
 ---
 
-### Phase 3.2: Semantic Enrichment (Planned - v2.1)
+### Phase 3.2: Semantic Enrichment ✅ (v2.1 - Completed)
 
 **Supported Languages:** Python, JavaScript, TypeScript
 
-#### Planned Features:
+---
 
-1. **Function Signatures**
-   - Parameters and return type information
-   - Native type hint support for each language
-   - Overload detection
+#### Phase 3.2.1: Function Signatures ✅ (v2.4 - Completed)
 
-2. **Docstrings**
-   - Python: Triple-quote docstrings
-   - JavaScript/TypeScript: JSDoc comments
-   - Markdown formatting preservation
+**Breaking Change:** All projects need to be reindexed.
 
-3. **Decorator & Imports**
-   - Decorator information (@decorator)
-   - Import dependencies tracking
-   - Module relationship mapping
+**Features:**
+- Function/method signatures stored in database (Python, TypeScript, JavaScript)
+- Parameters with type information
+- Return type annotations
+- AST-based extraction (always-on)
 
-**Estimated Time:** 2-3 weeks
+**Database Fields Added:**
+- `signature` - Full function signature
+- `parameters` - JSON array of parameters
+- `return_type` - Return type annotation
+
+**Note:** Reindex projects: `python codebox.py index /path/to/project`
+
+---
+
+#### Phase 3.2.2: Docstrings ✅ (v2.1 - Completed)
+
+**Breaking Change:** All projects need to be reindexed.
+
+**Features:**
+- Python docstrings (triple-quoted strings)
+- JavaScript/TypeScript JSDoc comments (/** ... */)
+- AST-based extraction (always-on)
+- Supports function, class, and method docstrings
+
+**Database Field Added:**
+- `docstring` - Documentation string/JSDoc comment
+
+**Implementation:**
+- Python: Extracts first string statement in function/class body
+- JavaScript/TypeScript: Extracts preceding /** ... */ comment
+- Stored as-is for maximum flexibility
+
+**Note:** Reindex projects: `python codebox.py index /path/to/project`
+
+---
+
+#### Phase 3.2.3: Decorator & Imports (Planned - Future)
+- Decorator tracking, import dependencies
+- **Estimated:** 1-2 weeks
 
 ---
 

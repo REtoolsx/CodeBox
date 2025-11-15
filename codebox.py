@@ -6,21 +6,6 @@ from app.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-def run_gui():
-    from PyQt6.QtWidgets import QApplication
-    from app.gui.main_window import MainWindow
-
-    app = QApplication(sys.argv)
-    app.setApplicationName(AppConfig.APP_NAME)
-    app.setApplicationVersion(AppConfig.APP_VERSION)
-    app.setStyle("Fusion")
-
-    window = MainWindow()
-    window.show()
-
-    sys.exit(app.exec())
-
-
 def run_cli(args):
     from app.cli.handler import CLIHandler
 
@@ -32,7 +17,6 @@ def run_cli(args):
             mode=args.mode,
             limit=args.limit,
             language=args.language,
-            output_format=args.format,
             full_content=args.full_content,
             preview_length=args.preview_length,
             context=args.context
@@ -48,39 +32,43 @@ def run_cli(args):
     elif args.command == "stats":
         handler.stats()
 
+    elif args.command == "auto-sync":
+        handler.auto_sync()
+
 
 def main():
     try:
         AppConfig.init_directories()
 
         parser = argparse.ArgumentParser(
-            description="CodeBox - Python Code Indexer & Search Tool",
+            description="CodeBox - CLI Code Indexer & Search Tool",
             formatter_class=argparse.RawDescriptionHelpFormatter,
             epilog="""
 Examples:
-  # GUI mode (default)
-  python codebox.py
-
-  # CLI mode - Index current directory
+  # Index current directory
   cd /path/to/your/project
   python codebox.py index
 
-  # CLI mode - Index specific path
+  # Index specific path
   python codebox.py index /path/to/project
   python codebox.py index ./my-project --languages python,javascript
 
-  # CLI mode - Search current directory
+  # Search current directory
   cd /path/to/your/project
   python codebox.py search "user authentication"
   python codebox.py search "login function" --mode vector --limit 5
 
-  # CLI mode - LLM-optimized search (with full content & context)
+  # LLM-optimized search (with full content & context)
   python codebox.py search "error handling" --full-content --context 5
   python codebox.py search "database" --preview-length 300 --limit 15
 
-  # CLI mode - Stats for current directory
+  # Stats for current directory
   cd /path/to/your/project
   python codebox.py stats
+
+  # Auto-sync (watch for changes)
+  cd /path/to/your/project
+  python codebox.py auto-sync
             """
         )
 
@@ -93,8 +81,6 @@ Examples:
         search_parser.add_argument('--limit', type=int, default=10,
                                     help='Max results (default: 10)')
         search_parser.add_argument('--language', help='Filter by language')
-        search_parser.add_argument('--format', choices=['json', 'text'],
-                                    default='json', help='Output format (default: json)')
         search_parser.add_argument('--full-content', action='store_true',
                                     help='Return full code content (not truncated)')
         search_parser.add_argument('--preview-length', type=int, default=200,
@@ -110,12 +96,15 @@ Examples:
 
         subparsers.add_parser('stats', help='Show database statistics')
 
+        subparsers.add_parser('auto-sync', help='Watch for file changes and auto-sync')
+
         args = parser.parse_args()
 
-        if args.command:
-            run_cli(args)
-        else:
-            run_gui()
+        if not args.command:
+            parser.print_help()
+            sys.exit(1)
+
+        run_cli(args)
 
     except Exception as e:
         logger.error(f"Application failed: {e}")

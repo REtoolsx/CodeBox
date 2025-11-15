@@ -1,16 +1,18 @@
 import json
 import sys
 import time
+import signal
 from pathlib import Path
 from typing import Optional, List
 from datetime import datetime
 from app.indexer.indexer import CoreIndexer
+from app.indexer.auto_sync import AutoSyncWorker
 from app.utils.config import AppConfig
 from app.utils.project_manager import ProjectManager
 from app.utils.logger import get_logger
 from app.core.indexing_manager import IndexingManager
 from app.core.search_manager import SearchManager
-from app.core.result_formatter import calculate_score, process_cli_results
+from app.core.result_formatter import process_cli_results
 from app.core.stats_manager import StatsManager
 from app.core.cli_helpers import CLIErrorHandler, CLIProjectPathResolver
 from app.core.model_validator import ModelValidator
@@ -31,7 +33,6 @@ class CLIHandler:
         mode: str = "hybrid",
         limit: int = 10,
         language: Optional[str] = None,
-        output_format: str = "json",
         full_content: bool = False,
         preview_length: int = 200,
         context: int = 0
@@ -66,30 +67,21 @@ class CLIHandler:
 
             total_time = (time.time() - search_start) * 1000
 
-            if output_format == "json":
-                output_data = {
-                    "success": True,
-                    "query": query,
-                    "mode": mode,
-                    "count": len(search_result.results),
-                    "performance": {
-                        "search_duration_ms": round(search_result.execution_time_ms, 2),
-                        "total_duration_ms": round(total_time, 2),
-                        "results_count": len(search_result.results),
-                        "results_per_second": round(len(search_result.results) / max((time.time() - search_start), 0.001), 2)
-                    },
-                    "model": ModelValidator.format_model_info_for_json(search_result.validation),
-                    "results": results_with_context
-                }
-                CLIErrorHandler.handle_success(output_data)
-            else:
-                self._output_text_results(
-                    query,
-                    search_result.results,
-                    search_result.validation.indexed_model,
-                    search_result.validation.current_model,
-                    search_result.validation.warning_message
-                )
+            output_data = {
+                "success": True,
+                "query": query,
+                "mode": mode,
+                "count": len(search_result.results),
+                "performance": {
+                    "search_duration_ms": round(search_result.execution_time_ms, 2),
+                    "total_duration_ms": round(total_time, 2),
+                    "results_count": len(search_result.results),
+                    "results_per_second": round(len(search_result.results) / max((time.time() - search_start), 0.001), 2)
+                },
+                "model": ModelValidator.format_model_info_for_json(search_result.validation),
+                "results": results_with_context
+            }
+            CLIErrorHandler.handle_success(output_data)
 
         except Exception as e:
             CLIErrorHandler.handle_error("Search", e)
@@ -146,33 +138,61 @@ class CLIHandler:
         except Exception as e:
             CLIErrorHandler.handle_error("Stats", e)
 
-    def _output_text_results(
-        self,
-        query: str,
-        results: List[dict],
-        indexed_model: Optional[str] = None,
-        current_model: Optional[str] = None,
-        mismatch_warning: Optional[str] = None
-    ):
-        print(f"\nSearch: {query}")
+    def auto_sync(self):
+        try:
+            project_path = self.path_resolver.get_path()
 
-        if indexed_model or current_model:
-            model_display = f"Model: {indexed_model or 'unknown'} (indexed)"
-            if current_model and indexed_model != current_model:
-                model_display += f" | {current_model} (searching)"
-            print(model_display)
+            # Check if project is indexed
+            metadata = AppConfig.load_project_metadata(project_path)
+            if not metadata:
+                print("Error: Project is not indexed. Please run 'index' command first.")
+                sys.exit(1)
 
-        if mismatch_warning:
-            print(f"\n⚠️  {mismatch_warning}")
+            # Get languages from config
+            enabled_languages = AppConfig.get_enabled_languages()
+            if not enabled_languages:
+                enabled_languages = list(AppConfig.SUPPORTED_LANGUAGES.keys())
 
-        print(f"Results: {len(results)}\n")
-
-        mode = results[0].get('search_mode', 'hybrid') if results else 'hybrid'
-        total = len(results)
-
-        for i, result in enumerate(results, 1):
-            print(f"{i}. {result.get('file_path')} (Line {result.get('start_line')})")
-            print(f"   Language: {result.get('language')}")
-            print(f"   Score: {calculate_score(result, mode, i, total):.4f}")
-            print(f"   Preview: {result.get('content', '')[:100]}...")
+            print(f"Auto-sync started. Watching for changes... (Ctrl+C to stop)")
+            print(f"Project: {project_path}")
+            print(f"Languages: {', '.join(enabled_languages)}")
             print()
+
+            # Sync statistics
+            sync_stats = {
+                'total_files': 0,
+                'total_chunks': 0
+            }
+
+            # Callback definitions
+            def on_sync_complete(chunks_updated: int):
+                sync_stats['total_files'] += 1
+                sync_stats['total_chunks'] += chunks_updated
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                print(f"[{timestamp}] Synced {sync_stats['total_files']} files, {sync_stats['total_chunks']} chunks updated")
+
+            # Create and start worker
+            worker = AutoSyncWorker(
+                project_path=project_path,
+                enabled_languages=enabled_languages,
+                on_sync_complete=on_sync_complete
+            )
+
+            # Setup signal handler for graceful shutdown
+            def signal_handler(sig, frame):
+                print("\n\nStopping auto-sync...")
+                worker.stop()
+                print(f"Auto-sync stopped. Total: {sync_stats['total_files']} files synced, {sync_stats['total_chunks']} chunks updated")
+                sys.exit(0)
+
+            signal.signal(signal.SIGINT, signal_handler)
+
+            # Start worker thread
+            worker.start()
+
+            # Keep main thread alive
+            while worker.is_alive():
+                time.sleep(1)
+
+        except Exception as e:
+            CLIErrorHandler.handle_error("Auto-sync", e)

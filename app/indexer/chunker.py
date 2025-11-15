@@ -16,7 +16,11 @@ class CodeChunk:
         chunk_type: str = "code",
         node_name: Optional[str] = None,
         size_bytes: int = 0,
-        modified_at: Optional[str] = None
+        modified_at: Optional[str] = None,
+        signature: Optional[str] = None,
+        parameters: Optional[str] = None,
+        return_type: Optional[str] = None,
+        docstring: Optional[str] = None
     ):
         self.content = content
         self.file_path = file_path
@@ -27,6 +31,10 @@ class CodeChunk:
         self.node_name = node_name
         self.size_bytes = size_bytes
         self.modified_at = modified_at
+        self.signature = signature
+        self.parameters = parameters
+        self.return_type = return_type
+        self.docstring = docstring
 
     def to_dict(self) -> Dict:
         return {
@@ -38,7 +46,11 @@ class CodeChunk:
             "chunk_type": self.chunk_type,
             "node_name": self.node_name or '',
             "size_bytes": self.size_bytes,
-            "modified_at": self.modified_at or ''
+            "modified_at": self.modified_at or '',
+            "signature": self.signature or '',
+            "parameters": self.parameters or '',
+            "return_type": self.return_type or '',
+            "docstring": self.docstring or ''
         }
 
 
@@ -97,7 +109,11 @@ class CodeChunker:
                         end_line=end_line,
                         language=language,
                         chunk_type=node_type,
-                        node_name=node.get('name')
+                        node_name=node.get('name'),
+                        signature=node.get('signature'),
+                        parameters=node.get('parameters'),
+                        return_type=node.get('return_type'),
+                        docstring=node.get('docstring')
                     )
                     chunks.append(chunk)
 

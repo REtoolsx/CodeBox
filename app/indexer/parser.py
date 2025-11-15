@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Optional, List, Dict
+import json
 import tree_sitter_python as tspython
 import tree_sitter_javascript as tsjavascript
 import tree_sitter_typescript as tstypescript
@@ -138,6 +139,10 @@ class TreeSitterParser:
                     'end_line': node.end_point[0],
                     'start_byte': node.start_byte,
                     'end_byte': node.end_byte,
+                    'signature': self._extract_signature(node, language),
+                    'parameters': self._extract_parameters(node, language),
+                    'return_type': self._extract_return_type(node, language),
+                    'docstring': self._extract_docstring(node, language),
                 })
 
             for child in node.children:
@@ -157,5 +162,246 @@ class TreeSitterParser:
         for child in node.children:
             if 'identifier' in child.type:
                 return child.text.decode('utf8')
+
+        return None
+
+    def _extract_signature(self, node, language: str) -> Optional[str]:
+        try:
+            if language == 'python':
+                return self._extract_python_signature(node)
+            elif language in ['typescript', 'javascript']:
+                return self._extract_ts_js_signature(node, language)
+            else:
+                return None
+        except Exception as e:
+            logger.debug(f"Failed to extract signature: {e}")
+            return None
+
+    def _extract_parameters(self, node, language: str) -> Optional[str]:
+        try:
+            if language == 'python':
+                return self._extract_python_parameters(node)
+            elif language in ['typescript', 'javascript']:
+                return self._extract_ts_js_parameters(node)
+            else:
+                return None
+        except Exception as e:
+            logger.debug(f"Failed to extract parameters: {e}")
+            return None
+
+    def _extract_return_type(self, node, language: str) -> Optional[str]:
+        try:
+            if language == 'python':
+                return self._extract_python_return_type(node)
+            elif language == 'typescript':
+                return self._extract_ts_return_type(node)
+            else:
+                return None
+        except Exception as e:
+            logger.debug(f"Failed to extract return type: {e}")
+            return None
+
+    def _extract_docstring(self, node, language: str) -> Optional[str]:
+        try:
+            if language == 'python':
+                return self._extract_python_docstring(node)
+            elif language in ['typescript', 'javascript']:
+                return self._extract_js_docstring(node)
+            else:
+                return None
+        except Exception as e:
+            logger.debug(f"Failed to extract docstring: {e}")
+            return None
+
+    def _extract_python_signature(self, node) -> Optional[str]:
+        if node.type == 'decorated_definition':
+            for child in node.children:
+                if child.type == 'function_definition':
+                    node = child
+                    break
+
+        if node.type not in ['function_definition', 'class_definition']:
+            return None
+
+        name = self._get_node_name(node)
+        if not name:
+            return None
+
+        if node.type == 'class_definition':
+            return f"class {name}"
+
+        params_node = node.child_by_field_name('parameters')
+        return_type_node = node.child_by_field_name('return_type')
+
+        params_text = params_node.text.decode('utf8') if params_node else "()"
+        return_type_text = ""
+
+        if return_type_node:
+            return_type_text = f" -> {return_type_node.text.decode('utf8')}"
+
+        return f"def {name}{params_text}{return_type_text}"
+
+    def _extract_python_parameters(self, node) -> Optional[str]:
+        if node.type == 'decorated_definition':
+            for child in node.children:
+                if child.type == 'function_definition':
+                    node = child
+                    break
+
+        if node.type != 'function_definition':
+            return None
+
+        params_node = node.child_by_field_name('parameters')
+        if not params_node:
+            return None
+
+        params = []
+        for child in params_node.children:
+            if child.type == 'identifier':
+                params.append({"name": child.text.decode('utf8'), "type": None})
+            elif child.type == 'typed_parameter':
+                param_name = None
+                param_type = None
+                for subchild in child.children:
+                    if subchild.type == 'identifier':
+                        param_name = subchild.text.decode('utf8')
+                    elif subchild.type == 'type':
+                        param_type = subchild.text.decode('utf8')
+                if param_name:
+                    params.append({"name": param_name, "type": param_type})
+            elif child.type == 'default_parameter':
+                param_name = None
+                param_type = None
+                for subchild in child.children:
+                    if subchild.type == 'identifier':
+                        param_name = subchild.text.decode('utf8')
+                    elif subchild.type == 'type':
+                        param_type = subchild.text.decode('utf8')
+                if param_name:
+                    params.append({"name": param_name, "type": param_type})
+
+        return json.dumps(params) if params else None
+
+    def _extract_python_return_type(self, node) -> Optional[str]:
+        if node.type == 'decorated_definition':
+            for child in node.children:
+                if child.type == 'function_definition':
+                    node = child
+                    break
+
+        if node.type != 'function_definition':
+            return None
+
+        return_type_node = node.child_by_field_name('return_type')
+        if return_type_node:
+            return return_type_node.text.decode('utf8')
+        return None
+
+    def _extract_ts_js_signature(self, node, language: str) -> Optional[str]:
+        name = self._get_node_name(node)
+        if not name:
+            return None
+
+        if node.type in ['class_declaration', 'interface_declaration']:
+            return f"class {name}" if node.type == 'class_declaration' else f"interface {name}"
+
+        params_node = node.child_by_field_name('parameters')
+        params_text = params_node.text.decode('utf8') if params_node else "()"
+
+        return_type_text = ""
+        if language == 'typescript':
+            return_type_node = node.child_by_field_name('return_type')
+            if return_type_node:
+                return_type_text = return_type_node.text.decode('utf8')
+
+        if node.type == 'arrow_function':
+            return f"{params_text} => {return_type_text}".strip()
+        else:
+            return f"function {name}{params_text}{return_type_text}"
+
+    def _extract_ts_js_parameters(self, node) -> Optional[str]:
+        params_node = node.child_by_field_name('parameters')
+        if not params_node:
+            return None
+
+        params = []
+        for child in params_node.children:
+            if child.type in ['required_parameter', 'optional_parameter']:
+                param_name = None
+                param_type = None
+                for subchild in child.children:
+                    if subchild.type == 'identifier':
+                        param_name = subchild.text.decode('utf8')
+                    elif subchild.type == 'type_annotation':
+                        for type_child in subchild.children:
+                            if type_child.type != ':':
+                                param_type = type_child.text.decode('utf8')
+                                break
+                if param_name:
+                    params.append({"name": param_name, "type": param_type})
+            elif child.type == 'identifier':
+                params.append({"name": child.text.decode('utf8'), "type": None})
+
+        return json.dumps(params) if params else None
+
+    def _extract_ts_return_type(self, node) -> Optional[str]:
+        return_type_node = node.child_by_field_name('return_type')
+        if not return_type_node:
+            return None
+
+        for child in return_type_node.children:
+            if child.type != ':':
+                return child.text.decode('utf8')
+        return None
+
+    def _extract_python_docstring(self, node) -> Optional[str]:
+        if node.type == 'decorated_definition':
+            for child in node.children:
+                if child.type == 'function_definition':
+                    node = child
+                    break
+
+        if node.type not in ['function_definition', 'class_definition']:
+            return None
+
+        body = node.child_by_field_name('body')
+        if not body:
+            return None
+
+        for child in body.children:
+            if child.type == 'expression_statement':
+                for subchild in child.children:
+                    if subchild.type == 'string':
+                        docstring_text = subchild.text.decode('utf8')
+                        docstring_text = docstring_text.strip()
+                        if docstring_text.startswith('"""') or docstring_text.startswith("'''"):
+                            return docstring_text[3:-3].strip()
+                        elif docstring_text.startswith('"') or docstring_text.startswith("'"):
+                            return docstring_text[1:-1].strip()
+                break
+
+        return None
+
+    def _extract_js_docstring(self, node) -> Optional[str]:
+        parent = node.parent
+        if not parent:
+            return None
+
+        node_index = None
+        for i, child in enumerate(parent.children):
+            if child == node:
+                node_index = i
+                break
+
+        if node_index is None or node_index == 0:
+            return None
+
+        prev_sibling = parent.children[node_index - 1]
+
+        if prev_sibling.type == 'comment':
+            comment_text = prev_sibling.text.decode('utf8')
+            if comment_text.strip().startswith('/**'):
+                docstring = comment_text.strip()[3:-2].strip()
+                return docstring
 
         return None

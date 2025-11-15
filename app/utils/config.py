@@ -7,8 +7,8 @@ import json
 
 class AppConfig:
     APP_NAME = "CodeBox Indexer"
-    APP_VERSION = "2.0.0"
-    SCHEMA_VERSION = "2.0"
+    APP_VERSION = "2.1.0"
+    SCHEMA_VERSION = "2.1"
 
     HOME_DIR = Path.home() / ".codebox"
     GLOBAL_CONFIG_FILE = HOME_DIR / "config.json"

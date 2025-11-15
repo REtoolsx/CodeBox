@@ -51,6 +51,10 @@ class VectorDatabase:
                     pa.field("node_name", pa.string()),
                     pa.field("size_bytes", pa.int64()),
                     pa.field("modified_at", pa.string()),
+                    pa.field("signature", pa.string()),
+                    pa.field("parameters", pa.string()),
+                    pa.field("return_type", pa.string()),
+                    pa.field("docstring", pa.string()),
                     pa.field("vector", pa.list_(pa.float32(), embedding_dim))
                 ])
 
@@ -133,6 +137,10 @@ class VectorDatabase:
                         "node_name": chunk.get('node_name', ''),
                         "size_bytes": chunk.get('size_bytes', 0),
                         "modified_at": chunk.get('modified_at', ''),
+                        "signature": chunk.get('signature', ''),
+                        "parameters": chunk.get('parameters', ''),
+                        "return_type": chunk.get('return_type', ''),
+                        "docstring": chunk.get('docstring', ''),
                         "vector": vector_list
                     })
 

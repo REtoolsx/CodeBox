@@ -1,10 +1,10 @@
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Callable
 from datetime import datetime, timedelta
 import time
 import traceback
+import threading
 
-from PyQt6.QtCore import QThread, pyqtSignal
 from watchdog.observers import Observer
 from watchdog.events import PatternMatchingEventHandler, FileSystemEvent
 
@@ -50,19 +50,28 @@ class FileChangeHandler(PatternMatchingEventHandler):
             self.callback(event.dest_path, ChangeEvent.CREATED)
 
 
-class AutoSyncWorker(QThread):
-    file_changed = pyqtSignal(str, str)
-    sync_started = pyqtSignal(int)
-    sync_complete = pyqtSignal(int)
-    sync_error = pyqtSignal(str, str)
-    health_status = pyqtSignal(dict)
-
-    def __init__(self, project_path: str, enabled_languages: list):
-        super().__init__()
+class AutoSyncWorker(threading.Thread):
+    def __init__(
+        self,
+        project_path: str,
+        enabled_languages: list,
+        on_file_changed: Optional[Callable[[str, str], None]] = None,
+        on_sync_started: Optional[Callable[[int], None]] = None,
+        on_sync_complete: Optional[Callable[[int], None]] = None,
+        on_sync_error: Optional[Callable[[str, str], None]] = None,
+        on_health_status: Optional[Callable[[dict], None]] = None
+    ):
+        super().__init__(daemon=True)
         self.project_path = Path(project_path)
         self.enabled_languages = enabled_languages
         self._is_running = False
         self.observer = None
+
+        self.on_file_changed = on_file_changed
+        self.on_sync_started = on_sync_started
+        self.on_sync_complete = on_sync_complete
+        self.on_sync_error = on_sync_error
+        self.on_health_status = on_health_status
 
         self.pending_changes: Dict[str, tuple] = {}
         self.debounce_seconds = AppConfig.AUTO_SYNC_DEBOUNCE_SECONDS
@@ -113,7 +122,8 @@ class AutoSyncWorker(QThread):
 
         except Exception as e:
             error_msg = f"Auto-sync failed: {str(e)}"
-            self.sync_error.emit("system", error_msg)
+            if self.on_sync_error:
+                self.on_sync_error("system", error_msg)
 
     def stop(self):
         self._is_running = False
@@ -128,7 +138,8 @@ class AutoSyncWorker(QThread):
             return
 
         self.pending_changes[rel_path] = (change_type, datetime.now())
-        self.file_changed.emit(rel_path, change_type)
+        if self.on_file_changed:
+            self.on_file_changed(rel_path, change_type)
 
     def _process_pending_changes(self):
         if not self.pending_changes:
@@ -148,7 +159,8 @@ class AutoSyncWorker(QThread):
 
         batch = ready_files[:self.batch_size]
 
-        self.sync_started.emit(len(batch))
+        if self.on_sync_started:
+            self.on_sync_started(len(batch))
 
         total_chunks = 0
         success_count = 0
@@ -164,7 +176,8 @@ class AutoSyncWorker(QThread):
             except Exception as e:
                 error_msg = str(e)
                 error_count += 1
-                self.sync_error.emit(file_path, error_msg)
+                if self.on_sync_error:
+                    self.on_sync_error(file_path, error_msg)
                 self.pending_changes.pop(file_path, None)
 
         self.last_sync_time = datetime.now()
@@ -173,7 +186,8 @@ class AutoSyncWorker(QThread):
 
         self._emit_health_status()
 
-        self.sync_complete.emit(total_chunks)
+        if self.on_sync_complete:
+            self.on_sync_complete(total_chunks)
 
     def _emit_health_status(self):
         status = {
@@ -183,7 +197,8 @@ class AutoSyncWorker(QThread):
             'total_errors': self.total_errors,
             'is_healthy': self.total_errors == 0 or (self.total_files_synced / max(1, self.total_files_synced + self.total_errors)) > 0.9
         }
-        self.health_status.emit(status)
+        if self.on_health_status:
+            self.on_health_status(status)
 
     def _update_file(self, rel_path: str, change_type: str) -> int:
         abs_path = self.project_path / rel_path

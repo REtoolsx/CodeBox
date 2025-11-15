@@ -39,24 +39,13 @@ python codebox.py stats
 python codebox.py auto-sync
 ```
 
-**Search Options:**
-- `--mode {vector,keyword,hybrid}` - Search strategy (default: hybrid)
-- `--limit N` - Max results (default: 10)
-- `--full-content` - Return full code (max 5000 chars)
-- `--context N` - Show N lines before/after match
-- `--preview-length N` - Preview size (default: 200 chars)
-
 ## ✨ Features
 
-- 🔍 **Hybrid Search**: Vector + Keyword search (RRF fusion)
-- 🌳 **AST-based Parsing**: Semantic code analysis with Tree-sitter
-- 🤖 **Auto Language Detection**: Powered by Pygments (supports 597+ languages, tree-sitter parsers for 12 core languages)
-- 🗂️ **Core Languages**: Python, JS/JSX, TS/TSX, Java, C++, C#, Go, Rust, HTML, CSS, JSON, YAML
-- ⚡ **Fast**: Optimized vector search with LanceDB
-- 🤖 **LLM Ready**: JSON output optimized for Claude Code and other LLMs
-- 📄 **Full Content Support**: Truncation control and full code viewing
-- 🔗 **Context Lines**: Display lines before/after code chunks
-- ⚙️ **Flexible Output**: Configurable preview length and content limits
+- **Hybrid Search**: Vector + Keyword search with RRF fusion
+- **AST Parsing**: Tree-sitter support for 12 core languages (Python, JS/JSX, TS/TSX, Java, C++, C#, Go, Rust, HTML, CSS, JSON, YAML)
+- **Auto Language Detection**: Pygments support for 597+ languages
+- **Vector Database**: LanceDB for fast similarity search
+- **JSON Output**: Optimized for LLM integration
 
 ## 📁 Project Structure
 

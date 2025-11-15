@@ -75,11 +75,11 @@ class CodeChunk:
 class CodeChunker:
     def __init__(
         self,
-        chunk_size: int = AppConfig.DEFAULT_CHUNK_SIZE,
-        overlap: int = AppConfig.DEFAULT_CHUNK_OVERLAP
+        chunk_size: Optional[int] = None,
+        overlap: Optional[int] = None
     ):
-        self.chunk_size = chunk_size
-        self.overlap = overlap
+        self.chunk_size = chunk_size if chunk_size is not None else AppConfig.DEFAULT_CHUNK_SIZE
+        self.overlap = overlap if overlap is not None else AppConfig.DEFAULT_CHUNK_OVERLAP
 
     def chunk_code(
         self,

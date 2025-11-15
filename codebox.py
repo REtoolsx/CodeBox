@@ -23,18 +23,9 @@ def run_cli(args):
         )
 
     elif args.command == "index":
-        cli_overrides = {}
-        if hasattr(args, 'chunk_size') and args.chunk_size:
-            cli_overrides['chunk_size'] = args.chunk_size
-        if hasattr(args, 'chunk_overlap') and args.chunk_overlap:
-            cli_overrides['chunk_overlap'] = args.chunk_overlap
-        if hasattr(args, 'max_file_size') and args.max_file_size:
-            cli_overrides['max_file_size'] = args.max_file_size
-
         handler.index(
             project_path=args.path,
-            profile=getattr(args, 'profile', None),
-            cli_overrides=cli_overrides if cli_overrides else None
+            profile=getattr(args, 'profile', None)
         )
 
     elif args.command == "stats":
@@ -108,13 +99,7 @@ Examples:
         index_parser.add_argument('path', nargs='?', default=None,
                                    help='Project directory path (default: current directory)')
         index_parser.add_argument('--profile', choices=['auto', 'medium', 'large'],
-                                   help='Profile to use (auto, medium, large)')
-        index_parser.add_argument('--chunk-size', type=int,
-                                   help='Override chunk size')
-        index_parser.add_argument('--chunk-overlap', type=int,
-                                   help='Override chunk overlap')
-        index_parser.add_argument('--max-file-size', type=int,
-                                   help='Override max file size in bytes')
+                                   default='auto', help='Profile to use (default: auto)')
 
         search_parser.add_argument('--profile', choices=['auto', 'medium', 'large'],
                                    help='Profile to use (auto, medium, large)')

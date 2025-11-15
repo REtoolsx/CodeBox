@@ -5,7 +5,6 @@ import signal
 from pathlib import Path
 from typing import Optional, List
 from datetime import datetime
-from tqdm import tqdm
 from app.indexer.indexer import CoreIndexer, IndexingCallbacks
 from app.indexer.auto_sync import AutoSyncWorker
 from app.utils.config import AppConfig
@@ -89,16 +88,15 @@ class CLIHandler:
     def index(
         self,
         project_path: Optional[str] = None,
-        profile: Optional[str] = None,
-        cli_overrides: Optional[dict] = None
+        profile: Optional[str] = None
     ):
         try:
             if project_path is None:
                 project_path = self.path_resolver.get_path()
                 logger.info(f"Indexing current directory: {project_path}")
 
-            active_profile = profile if profile else AppConfig.get_active_profile(project_path)
-            AppConfig.apply_profile(active_profile, project_path, cli_overrides)
+            active_profile = profile if profile else "auto"
+            AppConfig.ensure_config_loaded(project_path, active_profile)
 
             logger.info(f"Using profile: {active_profile}")
 
@@ -106,16 +104,12 @@ class CLIHandler:
 
             class ProgressBarCallbacks(IndexingCallbacks):
                 def __init__(self):
-                    self.pbar = None
                     self.indexed_count = 0
                     self.failed_count = 0
                     self.skipped_count = 0
 
                 def on_progress(self, current: int, total: int, filename: str):
-                    if self.pbar is None:
-                        self.pbar = tqdm(total=total, desc="Indexing files", unit="file",
-                                         bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]')
-                    self.pbar.update(1 if current > (self.pbar.n or 0) else 0)
+                    pass
 
                 def on_file_processed(self, filename: str, status: str, chunks: int):
                     if status == "indexed":
@@ -125,25 +119,12 @@ class CLIHandler:
                     elif status == "skipped":
                         self.skipped_count += 1
 
-                    if self.pbar:
-                        self.pbar.set_postfix({
-                            'indexed': self.indexed_count,
-                            'failed': self.failed_count,
-                            'skipped': self.skipped_count
-                        })
-
                 def on_log(self, message: str):
-                    if self.pbar:
-                        self.pbar.write(message)
-                    else:
-                        logger.info(message)
+                    pass
 
             callbacks = ProgressBarCallbacks()
             indexer = CoreIndexer(indexing_ctx.project_path)
             result = indexer.index(callbacks=callbacks)
-
-            if callbacks.pbar:
-                callbacks.pbar.close()
 
             if not result.success:
                 raise Exception(result.error)

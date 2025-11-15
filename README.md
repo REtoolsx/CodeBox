@@ -52,13 +52,20 @@ python codebox.py auto-sync
 
 ### Profile Configuration
 
-CodeBox supports profile-based configuration via `.codebox.config.json` in your project root:
+CodeBox uses hardcoded profiles optimized for different project sizes. You can select a profile via CLI:
 
-- **auto**: Automatically detects profile based on project size (< 5000 files = medium, >= 5000 files = large)
+```bash
+python codebox.py index --profile medium
+python codebox.py index --profile large
+python codebox.py index --profile auto  # Default: auto-detects based on file count
+```
+
+**Available Profiles:**
+- **auto** (default): Automatically detects profile based on project size (< 5000 files = medium, >= 5000 = large)
 - **medium**: Optimized for medium projects (chunk_size: 512, search_limit: 50)
 - **large**: Optimized for large projects (chunk_size: 1024, search_limit: 100)
 
-CLI arguments override profile settings for maximum flexibility.
+All settings are hardcoded in `app/utils/config.py` for simplicity and consistency.
 
 ## ✨ Features
 

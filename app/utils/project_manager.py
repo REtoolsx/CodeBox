@@ -45,23 +45,19 @@ class ProjectManager:
         return AppConfig.get_all_projects()
 
     def update_project_index_time(self, project_path: str):
-        config = AppConfig.load_global_config()
-        project_hash = AppConfig.get_project_hash(project_path)
+        metadata = AppConfig.load_project_metadata(project_path)
 
-        if "projects" not in config:
-            config["projects"] = {}
-
-        if project_hash in config["projects"]:
-            config["projects"][project_hash]["indexed_at"] = datetime.now().isoformat()
-        else:
+        if not metadata:
             resolved = str(Path(project_path).resolve())
-            config["projects"][project_hash] = {
+            metadata = {
                 "path": resolved,
                 "name": Path(resolved).name,
                 "indexed_at": datetime.now().isoformat()
             }
+        else:
+            metadata["indexed_at"] = datetime.now().isoformat()
 
-        AppConfig.save_global_config(config)
+        AppConfig.save_project_metadata(project_path, metadata)
 
     def get_project_data_dir(self, project_path: Optional[str] = None) -> Path:
         if project_path is None:

@@ -46,6 +46,15 @@ def run_cli(args):
 
 def main():
     try:
+        # Fix Windows console encoding for Unicode support
+        import sys
+        if hasattr(sys.stdout, 'reconfigure'):
+            sys.stdout.reconfigure(encoding='utf-8')
+            sys.stderr.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
+    try:
         AppConfig.init_directories()
 
         parser = argparse.ArgumentParser(

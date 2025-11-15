@@ -8,7 +8,7 @@ logger = get_logger(__name__)
 
 
 class ValidationHelpers:
-    """Common validation functions for both CLI and GUI"""
+    """Common validation functions for CLI"""
 
     @staticmethod
     def validate_project_path(path: str, raise_error: bool = True) -> bool:

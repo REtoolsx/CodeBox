@@ -108,36 +108,6 @@ def process_cli_results(
     return processed_results
 
 
-def process_gui_results(
-    results: List[Dict[str, Any]],
-    mode: str
-) -> Dict[str, List[Tuple[int, Dict[str, Any]]]]:
-    """
-    Process search results for GUI tree view (file-based grouping)
-
-    Args:
-        results: Raw search results
-        mode: Search mode (used for score calculation)
-
-    Returns:
-        Dictionary mapping file paths to list of (index, result) tuples
-    """
-    files_dict = {}
-
-    for idx, result in enumerate(results):
-        file_path = result.get('file_path', 'Unknown')
-
-        if file_path not in files_dict:
-            files_dict[file_path] = []
-
-        # Add score to result
-        result['_calculated_score'] = calculate_score(result, mode, idx + 1, len(results))
-
-        files_dict[file_path].append((idx, result))
-
-    return files_dict
-
-
 def add_context_to_result(
     result: Dict[str, Any],
     context: int,

@@ -126,10 +126,3 @@ class ModelValidator:
             info["mismatch_warning"] = validation.warning_message
 
         return info
-
-    @staticmethod
-    def format_model_info_for_gui(validation: ModelValidationResult) -> Tuple[str, bool]:
-        if validation.has_mismatch and validation.warning_message:
-            return (f"⚠️ {validation.warning_message}", True)
-        else:
-            return ("", False)

@@ -18,7 +18,7 @@ class IndexingContext:
 
 
 class IndexingManager:
-    """Centralized indexing workflow management for both CLI and GUI"""
+    """Centralized indexing workflow management for CLI"""
 
     @staticmethod
     def prepare_indexing(

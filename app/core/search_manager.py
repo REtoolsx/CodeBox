@@ -22,7 +22,7 @@ class SearchResult:
 
 
 class SearchManager:
-    """Centralized search workflow management for both CLI and GUI"""
+    """Centralized search workflow management for CLI"""
 
     def __init__(self, project_path: Optional[str] = None):
         """

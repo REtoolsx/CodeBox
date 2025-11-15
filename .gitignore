@@ -34,9 +34,6 @@ ENV/
 *.swo
 *~
 
-# PyQt
-*.ui.py
-
 # Database
 .lancedb/
 *.db

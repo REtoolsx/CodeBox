@@ -52,23 +52,6 @@ python codebox.py stats
 python codebox.py auto-sync
 ```
 
-### Profile Configuration
-
-CodeBox uses hardcoded profiles optimized for different project sizes. You can select a profile via CLI:
-
-```bash
-python codebox.py index --profile medium
-python codebox.py index --profile large
-python codebox.py index --profile auto  # Default: auto-detects based on file count
-```
-
-**Available Profiles:**
-- **auto** (default): Automatically detects profile based on project size (< 5000 files = medium, >= 5000 = large)
-- **medium**: Optimized for medium projects (chunk_size: 512, search_limit: 50)
-- **large**: Optimized for large projects (chunk_size: 1024, search_limit: 100)
-
-All settings are hardcoded in `app/utils/config.py` for simplicity and consistency.
-
 ## ✨ Features
 
 - **Hybrid Search**: Vector + Keyword search with RRF fusion
@@ -83,30 +66,6 @@ All settings are hardcoded in `app/utils/config.py` for simplicity and consisten
 - **Auto Language Detection**: Pygments support for 597+ languages
 - **Vector Database**: LanceDB for fast similarity search
 - **JSON Output**: Optimized for LLM integration
-
-## 📁 Project Structure
-
-```
-CodeBox/
-├── app/
-│   ├── cli/              # CLI command handlers
-│   ├── core/             # Core business logic
-│   ├── indexer/          # Parser, embeddings, chunker
-│   ├── search/           # Vector DB, hybrid search
-│   └── utils/            # Config, logger
-├── codebox.py            # Entry point
-├── requirements.txt
-└── .lancedb/             # Database (auto-created)
-```
-
----
-
-### 📊 Indexed Metadata
-
-- Decorators, Imports, Parent Scope, Full Path, Scope Depth, Call Graph
-- Function signatures, parameters, return types, docstrings
-
----
 
 ## 📄 License
 

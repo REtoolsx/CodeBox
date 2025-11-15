@@ -20,42 +20,25 @@ Powerful code indexing and search tool with CLI interface and automatic language
 pip install -r requirements.txt
 ```
 
-### CLI Commands
+### Usage
 
-**Basic Usage:**
 ```bash
-# Help
-python codebox.py --help
-
-# Index project (auto-detects all supported languages)
+# Index your project (auto-detects languages)
 python codebox.py index /path/to/project
-python codebox.py index ./my-code
 
-# Search code (JSON output)
-python codebox.py search "user authentication"
-python codebox.py search "login function" --mode hybrid --limit 10
+# Search code
+python codebox.py search "user authentication" --mode hybrid --limit 10
 
-# Database stats
+# View statistics
 python codebox.py stats
 ```
 
-**Optimized Usage for Claude Code:**
-```bash
-# For detailed code analysis (recommended)
-python codebox.py search "authentication" --full-content --context 5 --limit 10
-
-# For refactoring analysis
-python codebox.py search "database connection" --full-content --context 10 --mode hybrid
-
-# For quick scanning
-python codebox.py search "API endpoints" --mode vector --preview-length 150 --limit 20
-
-# Error handling analysis with full code content
-python codebox.py search "error handling" --full-content --context 5
-
-# Search with custom preview length
-python codebox.py search "database" --preview-length 300
-```
+**Search Options:**
+- `--mode {vector,keyword,hybrid}` - Search strategy (default: hybrid)
+- `--limit N` - Max results (default: 10)
+- `--full-content` - Return full code (max 5000 chars)
+- `--context N` - Show N lines before/after match
+- `--preview-length N` - Preview size (default: 200 chars)
 
 ## ✨ Features
 
@@ -68,47 +51,6 @@ python codebox.py search "database" --preview-length 300
 - 📄 **Full Content Support**: Truncation control and full code viewing
 - 🔗 **Context Lines**: Display lines before/after code chunks
 - ⚙️ **Flexible Output**: Configurable preview length and content limits
-
-## 📋 CLI Commands
-
-### Search
-```bash
-python codebox.py search <query> [options]
-
-Options:
-  --mode {vector,keyword,hybrid}  Search mode (default: hybrid)
-  --limit N                       Max results (default: 10)
-  --full-content                  Return full code content, not truncated (max 5000 chars)
-  --preview-length N              Preview length in characters (default: 200)
-  --context N                     Number of context lines before/after chunk (default: 0)
-
-Note: All CLI commands return JSON output for easy LLM integration.
-
-Examples:
-  # Basic search
-  python codebox.py search "authentication"
-
-  # Full content + context
-  python codebox.py search "error handling" --full-content --context 5
-
-  # Custom preview length
-  python codebox.py search "database" --preview-length 300 --limit 15
-```
-
-### Index
-```bash
-python codebox.py index <path>
-
-Note:
-- Automatically detects all supported programming languages using Pygments
-- Each indexing automatically clears and recreates the project directory for a clean start
-- Supports 12 core languages with tree-sitter parsing: Python, JavaScript/JSX, TypeScript/TSX, Java, C++, C#, Go, Rust, HTML, CSS, JSON, YAML
-```
-
-### Stats
-```bash
-python codebox.py stats
-```
 
 ## 📁 Project Structure
 

@@ -6,7 +6,7 @@ import json
 
 
 class AppConfig:
-    APP_NAME = "CodeBox Indexer"
+    APP_NAME = "CodeBox - Your Project & LLM Friend"
     APP_VERSION = "2.2.0"
     SCHEMA_VERSION = "2.1"
 

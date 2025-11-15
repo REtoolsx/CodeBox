@@ -38,7 +38,7 @@ def main():
         AppConfig.init_directories()
 
         parser = argparse.ArgumentParser(
-            description="CodeBox - CLI Code Indexer & Search Tool (Auto Language Detection)",
+            description="CodeBox - Your Project & LLM Friend (Auto Language Detection)",
             formatter_class=argparse.RawDescriptionHelpFormatter,
             epilog="""
 Examples:

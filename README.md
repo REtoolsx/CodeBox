@@ -1,4 +1,4 @@
-# 🔍 CodeBox - Code Indexer & Search Tool
+# 🔍 CodeBox - Your Project & LLM Friend
 
 ![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)

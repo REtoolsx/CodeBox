@@ -1,17 +1,13 @@
 from pathlib import Path
 from typing import List, Set
 from app.utils.config import AppConfig
+from app.indexer.parser import TreeSitterParser
 
 
-def get_enabled_extensions(languages: List[str]) -> Set[str]:
-    enabled_exts = set()
-    for lang in languages:
-        ext_value = AppConfig.SUPPORTED_LANGUAGES.get(lang)
-        if isinstance(ext_value, list):
-            enabled_exts.update(ext_value)
-        else:
-            enabled_exts.add(ext_value)
-    return enabled_exts
+def get_all_supported_extensions() -> Set[str]:
+    """Get all supported file extensions from Pygments"""
+    parser = TreeSitterParser()
+    return parser.get_all_supported_extensions()
 
 
 def should_ignore(file_path: Path, ignore_patterns: List[str] = None) -> bool:
@@ -27,11 +23,11 @@ def should_ignore(file_path: Path, ignore_patterns: List[str] = None) -> bool:
 
 def find_files(
     base_path: Path,
-    languages: List[str],
     ignore_patterns: List[str] = None
 ) -> List[Path]:
+    """Find all supported files (auto-detected from Pygments)"""
     files = []
-    enabled_exts = get_enabled_extensions(languages)
+    supported_exts = get_all_supported_extensions()
 
     if ignore_patterns is None:
         ignore_patterns = AppConfig.DEFAULT_IGNORE_PATTERNS
@@ -43,7 +39,7 @@ def find_files(
         if should_ignore(file_path, ignore_patterns):
             continue
 
-        if file_path.suffix in enabled_exts:
+        if file_path.suffix.lower() in supported_exts:
             files.append(file_path)
 
     return files
@@ -51,12 +47,12 @@ def find_files(
 
 def should_process_file(
     file_path: Path,
-    languages: List[str],
     ignore_patterns: List[str] = None
 ) -> bool:
-    enabled_exts = get_enabled_extensions(languages)
+    """Check if file should be processed (auto-detected from Pygments)"""
+    supported_exts = get_all_supported_extensions()
 
-    if file_path.suffix not in enabled_exts:
+    if file_path.suffix.lower() not in supported_exts:
         return False
 
     if should_ignore(file_path, ignore_patterns):
@@ -65,16 +61,10 @@ def should_process_file(
     return True
 
 
-def get_watch_patterns(languages: List[str]) -> List[str]:
-    patterns = []
-    for lang in languages:
-        ext_value = AppConfig.SUPPORTED_LANGUAGES.get(lang)
-        if isinstance(ext_value, list):
-            for ext in ext_value:
-                patterns.append(f"*{ext}")
-        else:
-            patterns.append(f"*{ext_value}")
-    return patterns
+def get_watch_patterns() -> List[str]:
+    """Get watch patterns for all supported file extensions"""
+    supported_exts = get_all_supported_extensions()
+    return [f"*{ext}" for ext in supported_exts]
 
 
 def get_ignore_patterns(base_patterns: List[str] = None) -> List[str]:

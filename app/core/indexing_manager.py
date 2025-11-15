@@ -13,7 +13,6 @@ logger = get_logger(__name__)
 class IndexingContext:
     """Prepared context for indexing operation"""
     project_path: str
-    languages: List[str]
     project_name: str
 
 
@@ -22,21 +21,19 @@ class IndexingManager:
 
     @staticmethod
     def prepare_indexing(
-        project_path: Optional[str] = None,
-        languages: Optional[List[str]] = None
+        project_path: Optional[str] = None
     ) -> IndexingContext:
         """
         Prepare and validate indexing operation
 
         Args:
             project_path: Project directory path (None uses current directory)
-            languages: List of languages to index (None uses all supported)
 
         Returns:
-            IndexingContext with validated project and language info
+            IndexingContext with validated project info
 
         Raises:
-            ValueError: If project path is invalid or no languages selected
+            ValueError: If project path is invalid
         """
         # Initialize project context
         project_ctx = ProjectContextManager(project_path)
@@ -46,29 +43,14 @@ class IndexingManager:
 
         validated_path = project_ctx.project_path
 
-        # Validate and prepare languages
-        if not languages:
-            languages = list(AppConfig.SUPPORTED_LANGUAGES.keys())
-
-        # Filter to only supported languages
-        supported_langs = set(AppConfig.SUPPORTED_LANGUAGES.keys())
-        valid_languages = [lang for lang in languages if lang in supported_langs]
-
-        if not valid_languages:
-            raise ValueError("No valid languages selected for indexing")
-
-        # Save enabled languages to config
-        AppConfig.set_enabled_languages(valid_languages)
-
         logger.info(f"Indexing prepared for: {validated_path}")
-        logger.info(f"Languages: {', '.join(valid_languages)}")
+        logger.info(f"Auto-detecting all supported languages")
 
         # Get project name
         context = project_ctx.get_context()
 
         return IndexingContext(
             project_path=validated_path,
-            languages=valid_languages,
             project_name=context.name
         )
 

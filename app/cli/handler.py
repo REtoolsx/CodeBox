@@ -32,7 +32,6 @@ class CLIHandler:
         query: str,
         mode: str = "hybrid",
         limit: int = 10,
-        language: Optional[str] = None,
         full_content: bool = False,
         preview_length: int = 200,
         context: int = 0
@@ -50,7 +49,6 @@ class CLIHandler:
                 query=query,
                 mode=mode,
                 limit=limit,
-                language=language,
                 validate_model=True
             )
 
@@ -88,8 +86,7 @@ class CLIHandler:
 
     def index(
         self,
-        project_path: Optional[str] = None,
-        languages: Optional[List[str]] = None
+        project_path: Optional[str] = None
     ):
         try:
             if project_path is None:
@@ -97,10 +94,10 @@ class CLIHandler:
                 logger.info(f"Indexing current directory: {project_path}")
 
             # Prepare indexing using IndexingManager
-            indexing_ctx = IndexingManager.prepare_indexing(project_path, languages)
+            indexing_ctx = IndexingManager.prepare_indexing(project_path)
 
             # Execute indexing
-            indexer = CoreIndexer(indexing_ctx.project_path, indexing_ctx.languages)
+            indexer = CoreIndexer(indexing_ctx.project_path)
             result = indexer.index()
 
             if not result.success:
@@ -114,7 +111,6 @@ class CLIHandler:
                 "project_hash": AppConfig.get_project_hash(result.project_path),
                 "files_processed": result.total_files,
                 "chunks_indexed": result.total_chunks,
-                "languages": indexing_ctx.languages,
                 "embedding_model": result.embedding_model,
                 "database_location": result.database_location
             })
@@ -148,14 +144,9 @@ class CLIHandler:
                 print("Error: Project is not indexed. Please run 'index' command first.")
                 sys.exit(1)
 
-            # Get languages from config
-            enabled_languages = AppConfig.get_enabled_languages()
-            if not enabled_languages:
-                enabled_languages = list(AppConfig.SUPPORTED_LANGUAGES.keys())
-
             print(f"Auto-sync started. Watching for changes... (Ctrl+C to stop)")
             print(f"Project: {project_path}")
-            print(f"Languages: {', '.join(enabled_languages)}")
+            print(f"Auto-detecting all supported languages")
             print()
 
             # Sync statistics
@@ -174,7 +165,6 @@ class CLIHandler:
             # Create and start worker
             worker = AutoSyncWorker(
                 project_path=project_path,
-                enabled_languages=enabled_languages,
                 on_sync_complete=on_sync_complete
             )
 

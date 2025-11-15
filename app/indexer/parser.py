@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Set
 import json
 import tree_sitter_python as tspython
 import tree_sitter_javascript as tsjavascript
@@ -14,6 +14,8 @@ import tree_sitter_css as tscss
 import tree_sitter_json as tsjson
 
 from tree_sitter import Language, Parser
+from pygments.lexers import get_lexer_for_filename
+from pygments.util import ClassNotFound
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -32,6 +34,25 @@ class TreeSitterParser:
         'html': tshtml,
         'css': tscss,
         'json': tsjson,
+    }
+
+    # Pygments lexer name → tree-sitter parser mapping
+    PYGMENTS_TO_PARSER = {
+        'Python': 'python',
+        'Python 3': 'python',
+        'JavaScript': 'javascript',
+        'TypeScript': 'typescript',
+        'Java': 'java',
+        'C++': 'cpp',
+        'C': 'cpp',
+        'C#': 'c_sharp',
+        'Go': 'go',
+        'Rust': 'rust',
+        'HTML': 'html',
+        'HTML+Django/Jinja': 'html',
+        'CSS': 'css',
+        'JSON': 'json',
+        'YAML': 'json',  # YAML files will be treated as JSON for tree-sitter
     }
 
     IMPORTANT_NODE_TYPES = {
@@ -67,29 +88,53 @@ class TreeSitterParser:
             except Exception as e:
                 logger.error(f"Failed to initialize parser for {lang_name}: {e}")
 
+    def get_all_supported_extensions(self) -> Set[str]:
+        """Return all file extensions that have tree-sitter parser support"""
+        from pygments.lexers import get_all_lexers
+
+        supported_exts = set()
+
+        # Get all Pygments lexers
+        for lexer_name, aliases, patterns, mimetypes in get_all_lexers():
+            # Check if this lexer maps to one of our tree-sitter parsers
+            if lexer_name in self.PYGMENTS_TO_PARSER:
+                # Add all file patterns (extensions) for this lexer
+                for pattern in patterns:
+                    # Extract extension from pattern (e.g., "*.py" -> ".py")
+                    if pattern.startswith('*.'):
+                        ext = pattern[1:]  # Remove the '*'
+                        supported_exts.add(ext.lower())
+
+        return supported_exts
+
     def get_language_from_extension(self, file_path: str) -> Optional[str]:
-        ext = Path(file_path).suffix.lower()
-        ext_map = {
-            '.py': 'python',
-            '.js': 'javascript',
-            '.ts': 'typescript',
-            '.tsx': 'typescript',
-            '.java': 'java',
-            '.cpp': 'cpp',
-            '.cc': 'cpp',
-            '.cxx': 'cpp',
-            '.hpp': 'cpp',
-            '.h': 'cpp',
-            '.cs': 'c_sharp',
-            '.go': 'go',
-            '.rs': 'rust',
-            '.html': 'html',
-            '.css': 'css',
-            '.json': 'json',
-            '.yaml': 'yaml',
-            '.yml': 'yaml'
-        }
-        return ext_map.get(ext)
+        """Auto-detect language from file extension using Pygments"""
+        try:
+            # Try Pygments first (supports 500+ languages)
+            lexer = get_lexer_for_filename(file_path)
+            lexer_name = lexer.name
+
+            # Map Pygments lexer name to tree-sitter parser name
+            parser_lang = self.PYGMENTS_TO_PARSER.get(lexer_name)
+
+            if parser_lang and parser_lang in self._parsers:
+                logger.debug(f"Detected language '{parser_lang}' for {file_path} via Pygments")
+                return parser_lang
+
+            # If Pygments detected a language but we don't have a parser, log and return None
+            if lexer_name:
+                logger.debug(f"Pygments detected '{lexer_name}' for {file_path}, but no tree-sitter parser available")
+                return None
+
+        except ClassNotFound:
+            # Pygments couldn't detect the language
+            logger.debug(f"Pygments couldn't detect language for {file_path}")
+            return None
+        except Exception as e:
+            logger.debug(f"Error detecting language for {file_path}: {e}")
+            return None
+
+        return None
 
     def parse_file(self, file_path: str, content: str) -> Optional[Dict]:
         language = self.get_language_from_extension(file_path)

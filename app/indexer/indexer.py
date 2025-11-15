@@ -35,9 +35,8 @@ class IndexingResult:
 
 
 class CoreIndexer:
-    def __init__(self, project_path: str, enabled_languages: List[str]):
+    def __init__(self, project_path: str):
         self.project_path = Path(project_path)
-        self.enabled_languages = enabled_languages
 
     def index(
         self,
@@ -156,15 +155,12 @@ class CoreIndexer:
             return result
 
     def _find_files(self) -> List[Path]:
+        """Find all files that can be parsed (auto-detect from Pygments)"""
         files = []
+        parser = TreeSitterParser()
 
-        enabled_exts = set()
-        for lang in self.enabled_languages:
-            ext_value = AppConfig.SUPPORTED_LANGUAGES.get(lang)
-            if isinstance(ext_value, list):
-                enabled_exts.update(ext_value)
-            else:
-                enabled_exts.add(ext_value)
+        # Get all supported extensions from Pygments
+        supported_exts = parser.get_all_supported_extensions()
 
         for file_path in self.project_path.rglob('*'):
             if not file_path.is_file():
@@ -173,7 +169,8 @@ class CoreIndexer:
             if self._should_ignore(file_path):
                 continue
 
-            if file_path.suffix in enabled_exts:
+            # Check if file extension is supported
+            if file_path.suffix.lower() in supported_exts:
                 files.append(file_path)
 
         return files

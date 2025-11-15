@@ -73,7 +73,6 @@ class SearchManager:
         query: str,
         mode: str = "hybrid",
         limit: int = 10,
-        language: Optional[str] = None,
         validate_model: bool = True
     ) -> SearchResult:
         """
@@ -83,7 +82,6 @@ class SearchManager:
             query: Search query string
             mode: Search mode (hybrid, vector, keyword)
             limit: Maximum number of results
-            language: Optional language filter
             validate_model: Whether to validate model compatibility
 
         Returns:
@@ -118,18 +116,12 @@ class SearchManager:
             # Initialize search engine
             _, hybrid_search, _ = self.initialize_search()
 
-            # Prepare filters
-            filters = {}
-            if language:
-                filters['language'] = language
-
-            # Execute search
+            # Execute search (no language filter, auto-detected during indexing)
             exec_start = time.time()
             results = hybrid_search.search(
                 query=query,
                 mode=mode,
-                limit=limit,
-                filters=filters
+                limit=limit
             )
             exec_time = (time.time() - exec_start) * 1000
 

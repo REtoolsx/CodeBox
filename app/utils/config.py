@@ -7,7 +7,7 @@ import json
 
 class AppConfig:
     APP_NAME = "CodeBox Indexer"
-    APP_VERSION = "2.1.0"
+    APP_VERSION = "2.2.0"
     SCHEMA_VERSION = "2.1"
 
     HOME_DIR = Path.home() / ".codebox"
@@ -60,20 +60,6 @@ class AppConfig:
     AUTO_SYNC_ENABLED = False
     AUTO_SYNC_DEBOUNCE_SECONDS = 2.0
     AUTO_SYNC_BATCH_SIZE = 10
-    SUPPORTED_LANGUAGES = {
-        'python': '.py',
-        'javascript': '.js',
-        'typescript': '.ts',
-        'java': '.java',
-        'cpp': ['.cpp', '.cc', '.cxx', '.hpp', '.h'],
-        'c_sharp': '.cs',
-        'go': '.go',
-        'rust': '.rs',
-        'html': '.html',
-        'css': '.css',
-        'json': '.json',
-        'yaml': ['.yaml', '.yml']
-    }
 
     DEFAULT_IGNORE_PATTERNS = [
         '__pycache__',
@@ -102,17 +88,6 @@ class AppConfig:
     def set_auto_sync_enabled(cls, enabled: bool):
         config = cls.load_global_config()
         config['auto_sync_enabled'] = enabled
-        cls.save_global_config(config)
-
-    @classmethod
-    def get_enabled_languages(cls) -> list:
-        config = cls.load_global_config()
-        return config.get('enabled_languages', list(cls.SUPPORTED_LANGUAGES.keys()))
-
-    @classmethod
-    def set_enabled_languages(cls, languages: list):
-        config = cls.load_global_config()
-        config['enabled_languages'] = languages
         cls.save_global_config(config)
 
     @classmethod

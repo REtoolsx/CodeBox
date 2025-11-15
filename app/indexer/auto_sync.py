@@ -54,7 +54,6 @@ class AutoSyncWorker(threading.Thread):
     def __init__(
         self,
         project_path: str,
-        enabled_languages: list,
         on_file_changed: Optional[Callable[[str, str], None]] = None,
         on_sync_started: Optional[Callable[[int], None]] = None,
         on_sync_complete: Optional[Callable[[int], None]] = None,
@@ -63,7 +62,6 @@ class AutoSyncWorker(threading.Thread):
     ):
         super().__init__(daemon=True)
         self.project_path = Path(project_path)
-        self.enabled_languages = enabled_languages
         self._is_running = False
         self.observer = None
 
@@ -248,19 +246,15 @@ class AutoSyncWorker(threading.Thread):
         return len(chunks)
 
     def _should_process(self, file_path: str) -> bool:
+        """Check if file should be processed (auto-detect from Pygments)"""
         path = Path(file_path)
 
-        enabled_exts = set()
-        for lang in self.enabled_languages:
-            ext_value = AppConfig.SUPPORTED_LANGUAGES.get(lang)
-            if isinstance(ext_value, list):
-                enabled_exts.update(ext_value)
-            else:
-                enabled_exts.add(ext_value)
-
-        if path.suffix not in enabled_exts:
+        # Try to detect language using parser
+        language = self.parser.get_language_from_extension(str(path))
+        if not language:
             return False
 
+        # Check ignore patterns
         path_str = str(path)
         for pattern in AppConfig.DEFAULT_IGNORE_PATTERNS:
             if pattern in path_str:
@@ -269,15 +263,10 @@ class AutoSyncWorker(threading.Thread):
         return True
 
     def _get_watch_patterns(self) -> list:
-        patterns = []
-        for lang in self.enabled_languages:
-            ext_value = AppConfig.SUPPORTED_LANGUAGES.get(lang)
-            if isinstance(ext_value, list):
-                for ext in ext_value:
-                    patterns.append(f"*{ext}")
-            else:
-                patterns.append(f"*{ext_value}")
-        return patterns
+        """Get watch patterns for all supported file extensions"""
+        # Get all supported extensions from parser
+        supported_exts = self.parser.get_all_supported_extensions()
+        return [f"*{ext}" for ext in supported_exts]
 
     def _get_ignore_patterns(self) -> list:
         ignore = []

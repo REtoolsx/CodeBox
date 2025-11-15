@@ -5,8 +5,9 @@
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20Mac-lightgrey.svg)
 ![LanceDB](https://img.shields.io/badge/Vector_DB-LanceDB-orange.svg)
 ![Tree-sitter](https://img.shields.io/badge/Parser-Tree--sitter-yellowgreen.svg)
+![Pygments](https://img.shields.io/badge/Language_Detection-Pygments-blue.svg)
 
-Powerful code indexing and search tool with CLI interface.
+Powerful code indexing and search tool with CLI interface and automatic language detection.
 
 **CLI-Only Mode:** Terminal-based code indexing and search optimized for LLM integration.
 
@@ -26,9 +27,9 @@ pip install -r requirements.txt
 # Help
 python codebox.py --help
 
-# Index project
+# Index project (auto-detects all supported languages)
 python codebox.py index /path/to/project
-python codebox.py index ./my-code --languages python,javascript
+python codebox.py index ./my-code
 
 # Search code (JSON output)
 python codebox.py search "user authentication"
@@ -60,7 +61,8 @@ python codebox.py search "database" --preview-length 300
 
 - 🔍 **Hybrid Search**: Vector + Keyword search (RRF fusion)
 - 🌳 **AST-based Parsing**: Semantic code analysis with Tree-sitter
-- 🗂️ **Multi-language**: Python, JS, TS, Java, C++, C#, Go, Rust, HTML, CSS, JSON, YAML
+- 🤖 **Auto Language Detection**: Powered by Pygments (supports 500+ languages, tree-sitter parsers for 12 core languages)
+- 🗂️ **Core Languages**: Python, JS, TS, Java, C++, C#, Go, Rust, HTML, CSS, JSON, YAML
 - ⚡ **Fast**: Optimized vector search with LanceDB
 - 🤖 **LLM Ready**: JSON output optimized for Claude Code and other LLMs
 - 📄 **Full Content Support**: Truncation control and full code viewing
@@ -76,7 +78,6 @@ python codebox.py search <query> [options]
 Options:
   --mode {vector,keyword,hybrid}  Search mode (default: hybrid)
   --limit N                       Max results (default: 10)
-  --language LANG                 Filter by language
   --full-content                  Return full code content, not truncated (max 5000 chars)
   --preview-length N              Preview length in characters (default: 200)
   --context N                     Number of context lines before/after chunk (default: 0)
@@ -96,12 +97,12 @@ Examples:
 
 ### Index
 ```bash
-python codebox.py index <path> [options]
+python codebox.py index <path>
 
-Options:
-  --languages LANGS    Comma-separated languages (e.g., python,javascript)
-
-Note: Each indexing automatically clears and recreates the project directory for a clean start.
+Note:
+- Automatically detects all supported programming languages using Pygments
+- Each indexing automatically clears and recreates the project directory for a clean start
+- Supports 12 core languages with tree-sitter parsing: Python, JavaScript, TypeScript, Java, C++, C#, Go, Rust, HTML, CSS, JSON, YAML
 ```
 
 ### Stats

@@ -16,17 +16,14 @@ def run_cli(args):
             query=args.query,
             mode=args.mode,
             limit=args.limit,
-            language=args.language,
             full_content=args.full_content,
             preview_length=args.preview_length,
             context=args.context
         )
 
     elif args.command == "index":
-        languages = args.languages.split(',') if args.languages else None
         handler.index(
-            project_path=args.path,
-            languages=languages
+            project_path=args.path
         )
 
     elif args.command == "stats":
@@ -41,17 +38,17 @@ def main():
         AppConfig.init_directories()
 
         parser = argparse.ArgumentParser(
-            description="CodeBox - CLI Code Indexer & Search Tool",
+            description="CodeBox - CLI Code Indexer & Search Tool (Auto Language Detection)",
             formatter_class=argparse.RawDescriptionHelpFormatter,
             epilog="""
 Examples:
-  # Index current directory
+  # Index current directory (auto-detects all supported languages)
   cd /path/to/your/project
   python codebox.py index
 
-  # Index specific path
+  # Index specific path (auto-detects all supported languages)
   python codebox.py index /path/to/project
-  python codebox.py index ./my-project --languages python,javascript
+  python codebox.py index ./my-project
 
   # Search current directory
   cd /path/to/your/project
@@ -80,7 +77,6 @@ Examples:
                                     default='hybrid', help='Search mode (default: hybrid)')
         search_parser.add_argument('--limit', type=int, default=10,
                                     help='Max results (default: 10)')
-        search_parser.add_argument('--language', help='Filter by language')
         search_parser.add_argument('--full-content', action='store_true',
                                     help='Return full code content (not truncated)')
         search_parser.add_argument('--preview-length', type=int, default=200,
@@ -88,11 +84,9 @@ Examples:
         search_parser.add_argument('--context', type=int, default=0,
                                     help='Number of context lines before/after (default: 0)')
 
-        index_parser = subparsers.add_parser('index', help='Index a codebase')
+        index_parser = subparsers.add_parser('index', help='Index a codebase (auto-detects languages)')
         index_parser.add_argument('path', nargs='?', default=None,
                                    help='Project directory path (default: current directory)')
-        index_parser.add_argument('--languages',
-                                   help='Comma-separated languages (e.g., python,javascript)')
 
         subparsers.add_parser('stats', help='Show database statistics')
 

@@ -23,6 +23,9 @@ pip install -r requirements.txt
 ### Usage
 
 ```bash
+# Show help
+python codebox.py --help
+
 # Index your project (auto-detects languages)
 python codebox.py index /path/to/project
 
@@ -31,6 +34,9 @@ python codebox.py search "user authentication" --mode hybrid --limit 10
 
 # View statistics
 python codebox.py stats
+
+# Auto-sync (watch for file changes)
+python codebox.py auto-sync
 ```
 
 **Search Options:**

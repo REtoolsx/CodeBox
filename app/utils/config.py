@@ -310,6 +310,37 @@ class AppConfig:
 
         default_config = {
             "active_profile": "auto",
+            "ignore": {
+                "extension_blacklist": [
+                    ".zip", ".tar", ".gz", ".rar", ".7z",
+                    ".jpg", ".jpeg", ".png", ".gif", ".svg", ".ico", ".webp",
+                    ".mp4", ".avi", ".mkv", ".mov", ".wmv", ".flv",
+                    ".mp3", ".wav", ".flac", ".aac", ".ogg",
+                    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+                    ".exe", ".dll", ".so", ".dylib", ".bin",
+                    ".lock", ".log", ".tmp", ".cache", ".swp"
+                ],
+                "path_blacklist": [
+                    "node_modules",
+                    "__pycache__",
+                    ".git",
+                    "venv",
+                    "env",
+                    ".venv",
+                    "dist",
+                    "build",
+                    ".next",
+                    ".lancedb",
+                    "migrations",
+                    "test_data",
+                    "vendor",
+                    "coverage",
+                    ".pytest_cache",
+                    ".mypy_cache",
+                    ".tox",
+                    "htmlcov"
+                ]
+            },
             "auto_settings": {
                 "thresholds": {
                     "medium_max_files": 5000,
@@ -446,3 +477,28 @@ class AppConfig:
             return cls.detect_profile(project_path, config)
 
         return active
+
+    @classmethod
+    def get_ignore_config(cls, project_path: str) -> dict:
+        """
+        Get ignore configuration (extension_blacklist, path_blacklist)
+
+        Args:
+            project_path: Project directory path
+
+        Returns:
+            Dict with extension_blacklist and path_blacklist
+        """
+        config = cls.load_project_config(project_path)
+
+        if config and 'ignore' in config:
+            return {
+                'extension_blacklist': config['ignore'].get('extension_blacklist', []),
+                'path_blacklist': config['ignore'].get('path_blacklist', [])
+            }
+
+        # Fallback to DEFAULT_IGNORE_PATTERNS
+        return {
+            'extension_blacklist': ['*.pyc', '*.min.js', '*.min.css'],
+            'path_blacklist': cls.DEFAULT_IGNORE_PATTERNS
+        }

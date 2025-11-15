@@ -46,16 +46,18 @@ class FileProcessor:
             size_bytes = file_stat.st_size if file_stat else None
             modified_at = datetime.fromtimestamp(file_stat.st_mtime).isoformat() if file_stat else None
 
-            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                content = f.read()
-
-            if len(content) > AppConfig.MAX_FILE_SIZE:
+            # Check file size before reading into memory
+            if size_bytes and size_bytes > AppConfig.MAX_FILE_SIZE:
+                size_mb = size_bytes / (1024 * 1024)
                 return ProcessedFileResult(
                     file_path=str(file_path),
                     chunks_count=0,
                     success=False,
-                    error="File too large"
+                    error=f"File too large: {size_mb:.1f}MB"
                 )
+
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
 
             parse_result = self.parser.parse_file(str(file_path), content)
             if not parse_result:

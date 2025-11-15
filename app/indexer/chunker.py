@@ -20,7 +20,13 @@ class CodeChunk:
         signature: Optional[str] = None,
         parameters: Optional[str] = None,
         return_type: Optional[str] = None,
-        docstring: Optional[str] = None
+        docstring: Optional[str] = None,
+        decorators: Optional[str] = None,
+        imports: Optional[str] = None,
+        parent_scope: Optional[str] = None,
+        full_path: Optional[str] = None,
+        scope_depth: int = 0,
+        calls: Optional[str] = None
     ):
         self.content = content
         self.file_path = file_path
@@ -35,6 +41,12 @@ class CodeChunk:
         self.parameters = parameters
         self.return_type = return_type
         self.docstring = docstring
+        self.decorators = decorators
+        self.imports = imports
+        self.parent_scope = parent_scope
+        self.full_path = full_path
+        self.scope_depth = scope_depth
+        self.calls = calls
 
     def to_dict(self) -> Dict:
         return {
@@ -50,7 +62,13 @@ class CodeChunk:
             "signature": self.signature or '',
             "parameters": self.parameters or '',
             "return_type": self.return_type or '',
-            "docstring": self.docstring or ''
+            "docstring": self.docstring or '',
+            "decorators": self.decorators or '',
+            "imports": self.imports or '',
+            "parent_scope": self.parent_scope or '',
+            "full_path": self.full_path or '',
+            "scope_depth": self.scope_depth,
+            "calls": self.calls or ''
         }
 
 
@@ -113,7 +131,12 @@ class CodeChunker:
                         signature=node.get('signature'),
                         parameters=node.get('parameters'),
                         return_type=node.get('return_type'),
-                        docstring=node.get('docstring')
+                        docstring=node.get('docstring'),
+                        decorators=node.get('decorators'),
+                        parent_scope=node.get('parent_scope'),
+                        full_path=node.get('full_path'),
+                        scope_depth=node.get('scope_depth', 0),
+                        calls=node.get('calls')
                     )
                     chunks.append(chunk)
 

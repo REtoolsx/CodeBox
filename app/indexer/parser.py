@@ -156,10 +156,13 @@ class TreeSitterParser:
                 content
             )
 
+            file_imports = self._extract_imports(tree.root_node, language)
+
             return {
                 'tree': tree,
                 'language': language,
-                'nodes': important_nodes
+                'nodes': important_nodes,
+                'imports': file_imports
             }
 
         except Exception as e:
@@ -175,9 +178,19 @@ class TreeSitterParser:
         important_types = self.IMPORTANT_NODE_TYPES.get(language, [])
         nodes = []
 
-        def traverse(node):
+        def traverse(node, parent_chain=None):
+            if parent_chain is None:
+                parent_chain = []
+
             if node.type in important_types:
                 name = self._get_node_name(node)
+
+                parent_scope = '.'.join(parent_chain) if parent_chain else None
+                full_path = '.'.join(parent_chain + [name]) if name else None
+                scope_depth = len(parent_chain)
+
+                function_calls = self._extract_function_calls(node, language, name)
+                calls_json = json.dumps(function_calls) if function_calls else None
 
                 nodes.append({
                     'type': node.type,
@@ -190,10 +203,19 @@ class TreeSitterParser:
                     'parameters': self._extract_parameters(node, language),
                     'return_type': self._extract_return_type(node, language),
                     'docstring': self._extract_docstring(node, language),
+                    'decorators': self._extract_decorators(node, language),
+                    'parent_scope': parent_scope,
+                    'full_path': full_path,
+                    'scope_depth': scope_depth,
+                    'calls': calls_json,
                 })
 
-            for child in node.children:
-                traverse(child)
+                new_chain = parent_chain + [name] if name else parent_chain
+                for child in node.children:
+                    traverse(child, new_chain)
+            else:
+                for child in node.children:
+                    traverse(child, parent_chain)
 
         traverse(root_node)
         return nodes
@@ -452,3 +474,166 @@ class TreeSitterParser:
                 return docstring
 
         return None
+
+    def _extract_decorators(self, node, language: str) -> Optional[str]:
+        """Extract decorator/annotation information from a node"""
+        decorators = []
+
+        try:
+            if language == 'python':
+                if node.type == 'decorated_definition':
+                    for child in node.children:
+                        if child.type == 'decorator':
+                            decorator_text = child.text.decode('utf8').strip()
+                            decorators.append(decorator_text)
+
+            elif language in ['typescript', 'javascript']:
+                for child in node.children:
+                    if child.type == 'decorator':
+                        decorator_text = child.text.decode('utf8').strip()
+                        decorators.append(decorator_text)
+
+            elif language == 'java':
+                for child in node.children:
+                    if child.type in ['marker_annotation', 'annotation']:
+                        annotation_text = child.text.decode('utf8').strip()
+                        decorators.append(annotation_text)
+
+            elif language == 'rust':
+                for child in node.children:
+                    if child.type == 'attribute_item':
+                        attribute_text = child.text.decode('utf8').strip()
+                        decorators.append(attribute_text)
+
+            elif language == 'c_sharp':
+                for child in node.children:
+                    if child.type == 'attribute_list':
+                        attribute_text = child.text.decode('utf8').strip()
+                        decorators.append(attribute_text)
+
+        except Exception as e:
+            logger.debug(f"Failed to extract decorators for {language}: {e}")
+            return None
+
+        return json.dumps(decorators) if decorators else None
+
+    def _extract_imports(self, root_node, language: str) -> List[str]:
+        """Extract all import statements from file"""
+        imports = []
+
+        import_node_types = {
+            'python': ['import_statement', 'import_from_statement'],
+            'javascript': ['import_statement'],
+            'typescript': ['import_statement'],
+            'java': ['import_declaration'],
+            'go': ['import_spec', 'import_declaration'],
+            'rust': ['use_declaration'],
+            'cpp': ['preproc_include'],
+            'c_sharp': ['using_directive'],
+        }
+
+        target_types = import_node_types.get(language, [])
+        if not target_types:
+            return imports
+
+        def traverse(node):
+            if node.type in target_types:
+                import_text = node.text.decode('utf8').strip()
+                if import_text and import_text not in imports:
+                    imports.append(import_text)
+
+            for child in node.children:
+                traverse(child)
+
+        try:
+            traverse(root_node)
+        except Exception as e:
+            logger.debug(f"Failed to extract imports for {language}: {e}")
+
+        return imports
+
+    def _get_call_target(self, node, language: str) -> Optional[str]:
+        """Extract the target function/method name from a call node"""
+        try:
+            if language == 'python':
+                for child in node.children:
+                    if child.type == 'identifier':
+                        return child.text.decode('utf8')
+                    elif child.type == 'attribute':
+                        return child.text.decode('utf8')
+
+            elif language in ['javascript', 'typescript']:
+                for child in node.children:
+                    if child.type == 'identifier':
+                        return child.text.decode('utf8')
+                    elif child.type == 'member_expression':
+                        return child.text.decode('utf8')
+
+            elif language == 'java':
+                for child in node.children:
+                    if child.type == 'identifier':
+                        return child.text.decode('utf8')
+
+            elif language == 'go':
+                for child in node.children:
+                    if child.type == 'identifier':
+                        return child.text.decode('utf8')
+                    elif child.type == 'selector_expression':
+                        return child.text.decode('utf8')
+
+            elif language == 'rust':
+                for child in node.children:
+                    if child.type == 'identifier':
+                        return child.text.decode('utf8')
+                    elif child.type == 'field_expression':
+                        return child.text.decode('utf8')
+
+        except Exception as e:
+            logger.debug(f"Failed to extract call target: {e}")
+
+        return None
+
+    def _extract_function_calls(self, node, language: str, current_function: str = None) -> List[Dict]:
+        """Extract function calls within the given node scope"""
+        calls = []
+
+        call_node_types = {
+            'python': ['call'],
+            'javascript': ['call_expression'],
+            'typescript': ['call_expression'],
+            'java': ['method_invocation'],
+            'go': ['call_expression'],
+            'rust': ['call_expression'],
+            'cpp': ['call_expression'],
+            'c_sharp': ['invocation_expression'],
+        }
+
+        target_call_types = call_node_types.get(language, [])
+
+        function_def_types = self.IMPORTANT_NODE_TYPES.get(language, [])
+
+        def traverse(node, func_name=None):
+            if node.type in function_def_types:
+                new_func_name = self._get_node_name(node)
+                for child in node.children:
+                    traverse(child, new_func_name)
+            elif node.type in target_call_types:
+                callee = self._get_call_target(node, language)
+                if callee and func_name:
+                    calls.append({
+                        'caller': func_name,
+                        'callee': callee,
+                        'line': node.start_point[0]
+                    })
+                for child in node.children:
+                    traverse(child, func_name)
+            else:
+                for child in node.children:
+                    traverse(child, func_name)
+
+        try:
+            traverse(node, current_function)
+        except Exception as e:
+            logger.debug(f"Failed to extract function calls: {e}")
+
+        return calls

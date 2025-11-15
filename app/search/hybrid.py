@@ -66,8 +66,11 @@ class HybridSearch:
         limit: int,
         filters: Optional[Dict]
     ) -> List[Dict]:
-        vector_results = self._vector_search(query, limit * 2, filters)
-        keyword_results = self._keyword_search(query, limit * 2, filters)
+        # Fetch slightly more results than limit for better RRF fusion
+        # Using 1.5x multiplier instead of 2x to reduce overhead
+        fetch_limit = int(limit * 1.5)
+        vector_results = self._vector_search(query, fetch_limit, filters)
+        keyword_results = self._keyword_search(query, fetch_limit, filters)
 
         fused_results = self._rrf_fusion(
             [vector_results, keyword_results],
@@ -113,10 +116,3 @@ class HybridSearch:
             final_results.append(result)
 
         return final_results
-
-    def get_similar_chunks(
-        self,
-        chunk_id: str,
-        limit: int = 10
-    ) -> List[Dict]:
-        return []

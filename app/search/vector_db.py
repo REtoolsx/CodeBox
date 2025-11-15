@@ -4,7 +4,10 @@ from typing import List, Dict, Optional
 import numpy as np
 import pyarrow as pa
 import threading
+import logging
 from app.utils.config import AppConfig
+
+logger = logging.getLogger(__name__)
 
 
 class VectorDatabase:
@@ -35,7 +38,8 @@ class VectorDatabase:
             self.db_path.mkdir(exist_ok=True, parents=True)
             self.db = lancedb.connect(str(self.db_path))
         except Exception as e:
-            raise
+            logger.error(f"Failed to connect to database at {self.db_path}: {e}")
+            raise RuntimeError(f"Database connection failed: {e}") from e
 
     def create_table(self, embedding_dim: int = AppConfig.EMBEDDING_DIM):
         with self._lock:
@@ -55,6 +59,12 @@ class VectorDatabase:
                     pa.field("parameters", pa.string()),
                     pa.field("return_type", pa.string()),
                     pa.field("docstring", pa.string()),
+                    pa.field("decorators", pa.string()),
+                    pa.field("imports", pa.string()),
+                    pa.field("parent_scope", pa.string()),
+                    pa.field("full_path", pa.string()),
+                    pa.field("scope_depth", pa.int32()),
+                    pa.field("calls", pa.string()),
                     pa.field("vector", pa.list_(pa.float32(), embedding_dim))
                 ])
 
@@ -82,32 +92,40 @@ class VectorDatabase:
                     self._ensure_fts_index()
 
             except Exception as e:
-                raise
+                logger.error(f"Failed to create table '{AppConfig.DB_TABLE_NAME}': {e}")
+                raise RuntimeError(f"Table creation failed: {e}") from e
 
     def _ensure_fts_index(self):
         try:
             self.table.create_fts_index("content", replace=True)
-        except Exception:
-            pass
+            logger.debug("FTS index created/updated successfully")
+        except Exception as e:
+            logger.warning(f"Failed to create FTS index (keyword search may not work): {e}")
+            # Don't crash - vector search can still work
 
     def _refresh_table(self):
-        try:
-            if AppConfig.DB_TABLE_NAME in self.db.table_names():
-                self.table = self.db.open_table(AppConfig.DB_TABLE_NAME)
-        except Exception:
-            pass
+        with self._lock:
+            try:
+                if AppConfig.DB_TABLE_NAME in self.db.table_names():
+                    self.table = self.db.open_table(AppConfig.DB_TABLE_NAME)
+                    logger.debug("Table refreshed successfully")
+            except Exception as e:
+                logger.warning(f"Failed to refresh table: {e}")
 
     def _update_fts_index(self):
-        try:
-            if self.table is not None:
-                self.table.create_fts_index("content", replace=True)
-        except Exception:
-            pass
+        with self._lock:
+            try:
+                if self.table is not None:
+                    self.table.create_fts_index("content", replace=True)
+                    logger.debug("FTS index updated successfully")
+            except Exception as e:
+                logger.warning(f"Failed to update FTS index: {e}")
 
     def add_chunks(
         self,
         chunks: List[Dict],
-        embeddings: np.ndarray
+        embeddings: np.ndarray,
+        update_fts: bool = True
     ):
         if not chunks or len(embeddings) == 0:
             return
@@ -141,6 +159,12 @@ class VectorDatabase:
                         "parameters": chunk.get('parameters', ''),
                         "return_type": chunk.get('return_type', ''),
                         "docstring": chunk.get('docstring', ''),
+                        "decorators": chunk.get('decorators', ''),
+                        "imports": chunk.get('imports', ''),
+                        "parent_scope": chunk.get('parent_scope', ''),
+                        "full_path": chunk.get('full_path', ''),
+                        "scope_depth": chunk.get('scope_depth', 0),
+                        "calls": chunk.get('calls', ''),
                         "vector": vector_list
                     })
 
@@ -156,10 +180,17 @@ class VectorDatabase:
 
                 self._refresh_table()
 
-                self._update_fts_index()
+                # Only update FTS index when requested (for performance)
+                if update_fts:
+                    self._update_fts_index()
 
-            except Exception as e:
+            except ValueError as e:
+                # Dimension mismatch - re-raise with context
+                logger.error(f"Embedding dimension error: {e}")
                 raise
+            except Exception as e:
+                logger.error(f"Failed to add chunks to database: {e}")
+                raise RuntimeError(f"Failed to add chunks: {e}") from e
 
     def vector_search(
         self,
@@ -181,7 +212,8 @@ class VectorDatabase:
 
             return results_list
 
-        except Exception:
+        except Exception as e:
+            logger.error(f"Vector search failed: {e}")
             return []
 
     def keyword_search(
@@ -206,7 +238,8 @@ class VectorDatabase:
             results_list = results.to_list()
             return results_list
 
-        except Exception:
+        except Exception as e:
+            logger.error(f"Keyword search failed: {e}")
             return []
 
     def delete_by_file(self, file_path: str):
@@ -221,8 +254,8 @@ class VectorDatabase:
 
                 self._update_fts_index()
 
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"Failed to delete file '{file_path}': {e}")
 
     def clear_table(self):
         if self.table is None:
@@ -232,8 +265,9 @@ class VectorDatabase:
             try:
                 self.db.drop_table(AppConfig.DB_TABLE_NAME)
                 self.create_table(embedding_dim=self.embedding_dim)
-            except Exception:
-                pass
+                logger.info("Table cleared successfully")
+            except Exception as e:
+                logger.error(f"Failed to clear table: {e}")
 
     def get_stats(self) -> Dict:
         if self.table is None:
@@ -246,5 +280,6 @@ class VectorDatabase:
                 "table_name": AppConfig.DB_TABLE_NAME,
                 "db_path": str(self.db_path)
             }
-        except Exception:
+        except Exception as e:
+            logger.error(f"Failed to get stats: {e}")
             return {"count": 0}

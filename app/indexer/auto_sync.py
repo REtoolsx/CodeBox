@@ -72,6 +72,7 @@ class AutoSyncWorker(threading.Thread):
         self.on_health_status = on_health_status
 
         self.pending_changes: Dict[str, tuple] = {}
+        self._pending_lock = threading.Lock()
         self.debounce_seconds = AppConfig.AUTO_SYNC_DEBOUNCE_SECONDS
         self.batch_size = AppConfig.AUTO_SYNC_BATCH_SIZE
 
@@ -135,27 +136,30 @@ class AutoSyncWorker(threading.Thread):
         if not self._should_process(file_path):
             return
 
-        self.pending_changes[rel_path] = (change_type, datetime.now())
+        with self._pending_lock:
+            self.pending_changes[rel_path] = (change_type, datetime.now())
+
         if self.on_file_changed:
             self.on_file_changed(rel_path, change_type)
 
     def _process_pending_changes(self):
-        if not self.pending_changes:
-            return
+        with self._pending_lock:
+            if not self.pending_changes:
+                return
 
-        now = datetime.now()
-        cutoff = now - timedelta(seconds=self.debounce_seconds)
+            now = datetime.now()
+            cutoff = now - timedelta(seconds=self.debounce_seconds)
 
-        ready_files = [
-            (file_path, change_type)
-            for file_path, (change_type, timestamp) in self.pending_changes.items()
-            if timestamp <= cutoff
-        ]
+            ready_files = [
+                (file_path, change_type)
+                for file_path, (change_type, timestamp) in self.pending_changes.items()
+                if timestamp <= cutoff
+            ]
 
-        if not ready_files:
-            return
+            if not ready_files:
+                return
 
-        batch = ready_files[:self.batch_size]
+            batch = ready_files[:self.batch_size]
 
         if self.on_sync_started:
             self.on_sync_started(len(batch))
@@ -172,13 +176,15 @@ class AutoSyncWorker(threading.Thread):
                 success_count += 1
                 batch_files.append(file_path)
 
-                self.pending_changes.pop(file_path, None)
+                with self._pending_lock:
+                    self.pending_changes.pop(file_path, None)
             except Exception as e:
                 error_msg = str(e)
                 error_count += 1
                 if self.on_sync_error:
                     self.on_sync_error(file_path, error_msg)
-                self.pending_changes.pop(file_path, None)
+                with self._pending_lock:
+                    self.pending_changes.pop(file_path, None)
 
         self.last_sync_time = datetime.now()
         self.total_files_synced += success_count
@@ -190,8 +196,11 @@ class AutoSyncWorker(threading.Thread):
             self.on_sync_complete(batch_files, total_chunks)
 
     def _emit_health_status(self):
+        with self._pending_lock:
+            pending_count = len(self.pending_changes)
+
         status = {
-            'pending_count': len(self.pending_changes),
+            'pending_count': pending_count,
             'last_sync_time': self.last_sync_time.isoformat() if self.last_sync_time else None,
             'total_files_synced': self.total_files_synced,
             'total_errors': self.total_errors,

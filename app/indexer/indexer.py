@@ -113,7 +113,6 @@ class CoreIndexer:
                 try:
                     file_stat = file_path.stat()
                     size_bytes = file_stat.st_size
-                    modified_at = datetime.fromtimestamp(file_stat.st_mtime).isoformat()
 
                     if size_bytes > AppConfig.MAX_FILE_SIZE:
                         size_mb = size_bytes / (1024 * 1024)
@@ -166,8 +165,6 @@ class CoreIndexer:
                     imports_str = ','.join(file_imports) if file_imports else ''
 
                     for chunk in chunks:
-                        chunk.size_bytes = size_bytes
-                        chunk.modified_at = modified_at
                         chunk.imports = imports_str
 
                     all_chunks.extend(chunks)

@@ -42,18 +42,18 @@ class FileProcessor:
         delete_existing: bool = False
     ) -> ProcessedFileResult:
         try:
-            file_stat = file_path.stat() if include_file_stats else None
-            size_bytes = file_stat.st_size if file_stat else None
-            modified_at = datetime.fromtimestamp(file_stat.st_mtime).isoformat() if file_stat else None
+            if include_file_stats:
+                file_stat = file_path.stat()
+                size_bytes = file_stat.st_size
 
-            if size_bytes and size_bytes > AppConfig.MAX_FILE_SIZE:
-                size_mb = size_bytes / (1024 * 1024)
-                return ProcessedFileResult(
-                    file_path=str(file_path),
-                    chunks_count=0,
-                    success=False,
-                    error=f"File too large: {size_mb:.1f}MB"
-                )
+                if size_bytes > AppConfig.MAX_FILE_SIZE:
+                    size_mb = size_bytes / (1024 * 1024)
+                    return ProcessedFileResult(
+                        file_path=str(file_path),
+                        chunks_count=0,
+                        success=False,
+                        error=f"File too large: {size_mb:.1f}MB"
+                    )
 
             with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                 content = f.read()
@@ -83,11 +83,6 @@ class FileProcessor:
                     success=True,
                     error=None
                 )
-
-            if include_file_stats and file_stat:
-                for chunk in chunks:
-                    chunk.size_bytes = size_bytes
-                    chunk.modified_at = modified_at
 
             chunk_texts = [chunk.content for chunk in chunks]
             embeddings = self.embedding_gen.generate_embeddings(chunk_texts)

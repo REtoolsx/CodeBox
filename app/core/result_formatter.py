@@ -1,5 +1,200 @@
 from typing import Dict, Any, Tuple, List, Optional
 from pathlib import Path
+import json
+
+
+def format_content_with_line_numbers(content: str, start_line: int) -> str:
+    if not content:
+        return ""
+
+    lines = content.split('\n')
+    formatted_lines = []
+
+    for i, line in enumerate(lines):
+        line_num = start_line + i
+        formatted_lines.append(f"{line_num:>4}│ {line}")
+
+    return '\n'.join(formatted_lines)
+
+
+def _parse_json_field(value: str) -> Any:
+    if not value or value == "":
+        return None
+
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return value
+
+
+def _parse_imports_string(imports_str: str) -> List[str]:
+    if not imports_str or imports_str == "":
+        return []
+
+    imports_list = [imp.strip() for imp in imports_str.split(',') if imp.strip()]
+    return imports_list
+
+
+def _format_compact(
+    result: Dict[str, Any],
+    formatted_content: str,
+    score: float
+) -> Dict[str, Any]:
+    file_path = result.get("file_path", "")
+    start_line = result.get("start_line", 0)
+    end_line = result.get("end_line", 0)
+    chunk_type = result.get("chunk_type", "code")
+    node_name = result.get("node_name", "")
+    parent_scope = result.get("parent_scope", "")
+    signature = result.get("signature", "")
+
+    compact_result = {
+        "file": f"{file_path}:{start_line}-{end_line}",
+        "type": chunk_type,
+        "score": round(score, 4)
+    }
+
+    if node_name:
+        compact_result["name"] = node_name
+
+    if parent_scope:
+        compact_result["scope"] = parent_scope
+
+    if signature:
+        compact_result["signature"] = signature
+
+    compact_result["code"] = formatted_content
+
+    return compact_result
+
+
+def _format_standard(
+    result: Dict[str, Any],
+    formatted_content: str,
+    score: float,
+    content_length: int,
+    is_truncated: bool
+) -> Dict[str, Any]:
+    file_path = result.get("file_path", "")
+    start_line = result.get("start_line", 0)
+    end_line = result.get("end_line", 0)
+    language = result.get("language", "")
+    chunk_type = result.get("chunk_type", "code")
+    node_name = result.get("node_name", "")
+    full_path = result.get("full_path", "")
+    signature = result.get("signature", "")
+    parameters = _parse_json_field(result.get("parameters", ""))
+    return_type = result.get("return_type", "")
+    docstring = result.get("docstring", "")
+
+    standard_result = {
+        "file": file_path,
+        "lines": f"{start_line}-{end_line}",
+        "language": language,
+        "type": chunk_type,
+        "score": round(score, 4),
+        "code": formatted_content
+    }
+
+    if node_name:
+        standard_result["name"] = node_name
+
+    if full_path:
+        standard_result["scope"] = full_path
+
+    if signature:
+        standard_result["signature"] = signature
+
+    if parameters:
+        standard_result["params"] = parameters
+
+    if return_type:
+        standard_result["returns"] = return_type
+
+    if docstring:
+        standard_result["docstring"] = docstring
+
+    if is_truncated:
+        standard_result["truncated"] = True
+        standard_result["length"] = content_length
+
+    return standard_result
+
+
+def _format_verbose(
+    result: Dict[str, Any],
+    formatted_content: str,
+    score: float,
+    content_length: int,
+    is_truncated: bool
+) -> Dict[str, Any]:
+    verbose_result = {
+        "location": {
+            "file": result.get("file_path", ""),
+            "lines": {
+                "start": result.get("start_line", 0),
+                "end": result.get("end_line", 0)
+            },
+            "language": result.get("language", "")
+        },
+        "symbol": {
+            "type": result.get("chunk_type", "code")
+        },
+        "code": {
+            "content": formatted_content,
+            "length": content_length,
+            "truncated": is_truncated
+        },
+        "relevance": {
+            "score": round(score, 4)
+        }
+    }
+
+    node_name = result.get("node_name", "")
+    if node_name:
+        verbose_result["symbol"]["name"] = node_name
+
+    full_path = result.get("full_path", "")
+    if full_path:
+        verbose_result["symbol"]["scope"] = full_path
+
+    scope_depth = result.get("scope_depth", 0)
+    if scope_depth > 0:
+        verbose_result["symbol"]["depth"] = scope_depth
+
+    signature = result.get("signature", "")
+    if signature:
+        verbose_result["symbol"]["signature"] = signature
+
+    parameters = _parse_json_field(result.get("parameters", ""))
+    if parameters:
+        verbose_result["symbol"]["params"] = parameters
+
+    return_type = result.get("return_type", "")
+    if return_type:
+        verbose_result["symbol"]["returns"] = return_type
+
+    decorators = _parse_json_field(result.get("decorators", ""))
+    if decorators:
+        verbose_result["symbol"]["decorators"] = decorators
+
+    calls = _parse_json_field(result.get("calls", ""))
+    imports = _parse_imports_string(result.get("imports", ""))
+    docstring = result.get("docstring", "")
+
+    if calls or imports or docstring:
+        verbose_result["metadata"] = {}
+
+        if calls:
+            verbose_result["metadata"]["calls"] = calls
+
+        if imports:
+            verbose_result["metadata"]["imports"] = imports
+
+        if docstring:
+            verbose_result["metadata"]["docstring"] = docstring
+
+    return verbose_result
 
 
 def calculate_score(result: Dict[str, Any], mode: str, rank: int = 1, total: int = 1) -> float:
@@ -50,46 +245,30 @@ def process_cli_results(
     context: int = 0,
     preview_length: int = 200,
     full_content: bool = False,
-    max_content_length: int = 10000
+    max_content_length: int = 10000,
+    output_format: str = "compact"
 ) -> List[Dict[str, Any]]:
     processed_results = []
 
     for idx, r in enumerate(results):
-        result_dict = {
-            "file_path": r.get("file_path"),
-            "start_line": r.get("start_line"),
-            "end_line": r.get("end_line"),
-            "language": r.get("language"),
-            "chunk_type": r.get("chunk_type"),
-            "node_name": r.get("node_name", ""),
-            "size_bytes": r.get("size_bytes", 0),
-            "modified_at": r.get("modified_at", ""),
-            "content": r.get("content", "")[:max_content_length] if full_content
-                      else r.get("content", "")[:preview_length],
-            "content_preview": r.get("content", "")[:preview_length],
-            "content_length": len(r.get("content", "")),
-            "is_truncated": len(r.get("content", "")) > (max_content_length if full_content else preview_length),
-            "score": calculate_score(r, mode, idx + 1, len(results))
-        }
+        raw_content = r.get("content", "")
+        truncated_content = raw_content[:max_content_length] if full_content else raw_content[:preview_length]
 
-        metadata_fields = {
-            "signature": r.get("signature", ""),
-            "parameters": r.get("parameters", ""),
-            "return_type": r.get("return_type", ""),
-            "docstring": r.get("docstring", ""),
-            "decorators": r.get("decorators", ""),
-            "imports": r.get("imports", ""),
-            "parent_scope": r.get("parent_scope", ""),
-            "full_path": r.get("full_path", ""),
-            "scope_depth": r.get("scope_depth", 0),
-            "calls": r.get("calls", "")
-        }
+        formatted_content = format_content_with_line_numbers(
+            truncated_content,
+            r.get("start_line", 0)
+        )
 
-        for key, value in metadata_fields.items():
-            if value:
-                result_dict[key] = value
-            elif key == "scope_depth":
-                result_dict[key] = value
+        content_length = len(raw_content)
+        is_truncated = len(raw_content) > (max_content_length if full_content else preview_length)
+        score = calculate_score(r, mode, idx + 1, len(results))
+
+        if output_format == "compact":
+            result_dict = _format_compact(r, formatted_content, score)
+        elif output_format == "standard":
+            result_dict = _format_standard(r, formatted_content, score, content_length, is_truncated)
+        else:
+            result_dict = _format_verbose(r, formatted_content, score, content_length, is_truncated)
 
         if context > 0:
             lines_before, lines_after = get_context_lines(

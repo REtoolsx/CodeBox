@@ -15,8 +15,6 @@ class CodeChunk:
         language: str,
         chunk_type: str = "code",
         node_name: Optional[str] = None,
-        size_bytes: int = 0,
-        modified_at: Optional[str] = None,
         signature: Optional[str] = None,
         parameters: Optional[str] = None,
         return_type: Optional[str] = None,
@@ -35,8 +33,6 @@ class CodeChunk:
         self.language = language
         self.chunk_type = chunk_type
         self.node_name = node_name
-        self.size_bytes = size_bytes
-        self.modified_at = modified_at
         self.signature = signature
         self.parameters = parameters
         self.return_type = return_type
@@ -57,8 +53,6 @@ class CodeChunk:
             "language": self.language,
             "chunk_type": self.chunk_type,
             "node_name": self.node_name or '',
-            "size_bytes": self.size_bytes,
-            "modified_at": self.modified_at or '',
             "signature": self.signature or '',
             "parameters": self.parameters or '',
             "return_type": self.return_type or '',

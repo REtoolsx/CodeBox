@@ -34,11 +34,13 @@ python codebox.py index --profile auto       # Auto-detect based on project size
 python codebox.py index --profile medium     # Optimized for medium projects
 python codebox.py index --profile large      # Optimized for large projects
 
-# Index with custom settings (override profile)
-python codebox.py index --chunk-size 1024 --max-file-size 2097152
-
 # Search code
 python codebox.py search "user authentication" --mode hybrid --limit 10
+
+# Search with different output modes
+python codebox.py search "authentication" --output compact    # Default: minimal, 70% token reduction
+python codebox.py search "authentication" --output standard   # Balanced: 50% token reduction
+python codebox.py search "authentication" --output verbose    # Full metadata
 
 # Search with profile
 python codebox.py search "authentication" --profile large --limit 20
@@ -70,6 +72,8 @@ All settings are hardcoded in `app/utils/config.py` for simplicity and consisten
 ## ✨ Features
 
 - **Hybrid Search**: Vector + Keyword search with RRF fusion
+- **3 Output Modes**: Compact (70% token reduction), Standard (50% reduction), Verbose (full metadata)
+- **Line-Numbered Output**: All code includes line numbers for easy LLM referencing
 - **AST Parsing**: Tree-sitter support for 12 core languages (Python, JS/JSX, TS/TSX, Java, C++, C#, Go, Rust, HTML, CSS, JSON, YAML)
   - **Function/Class signatures** with parameters and return types
   - **Decorators & Annotations** (@decorator, @pytest.fixture, etc.)
@@ -94,32 +98,6 @@ CodeBox/
 ├── requirements.txt
 └── .lancedb/             # Database (auto-created)
 ```
-
----
-
-## 🚧 Roadmap / TODO
-
-### ⚡ Phase 3.3: Relationship Tracking (Partially Completed)
-
-#### Completed Features:
-
-1. **✅ Parent/Module Info**
-   - Class inheritance hierarchy
-   - Nested scope information (parent_scope, full_path, scope_depth)
-   - Module parent tracking
-
-2. **✅ Call Graph (Same-File)**
-   - Function call relationships
-   - Caller-callee mapping
-   - Same-file call tracking with line numbers
-
-#### Future Features (Not Implemented):
-
-3. **Cross-Reference**
-   - Symbol usage tracking
-   - Definition-reference links
-   - Multi-file symbol resolution
-   - **Status:** Requires complex static analysis, deferred based on user feedback
 
 ---
 

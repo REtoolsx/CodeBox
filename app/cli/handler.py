@@ -35,7 +35,8 @@ class CLIHandler:
         full_content: bool = False,
         preview_length: int = 200,
         context: int = 0,
-        profile: Optional[str] = None
+        profile: Optional[str] = None,
+        output: str = "compact"
     ):
         try:
             search_start = time.time()
@@ -61,7 +62,8 @@ class CLIHandler:
                 context=context,
                 preview_length=preview_length,
                 full_content=full_content,
-                max_content_length=AppConfig.CLI_MAX_CONTENT_LENGTH
+                max_content_length=AppConfig.CLI_MAX_CONTENT_LENGTH,
+                output_format=output
             )
 
             total_time = (time.time() - search_start) * 1000

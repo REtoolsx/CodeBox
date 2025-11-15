@@ -19,7 +19,8 @@ def run_cli(args):
             full_content=args.full_content,
             preview_length=args.preview_length,
             context=args.context,
-            profile=getattr(args, 'profile', None)
+            profile=getattr(args, 'profile', None),
+            output=getattr(args, 'output', 'compact')
         )
 
     elif args.command == "index":
@@ -94,6 +95,9 @@ Examples:
                                     help='Preview length in characters (default: 200)')
         search_parser.add_argument('--context', type=int, default=0,
                                     help='Number of context lines before/after (default: 0)')
+        search_parser.add_argument('--output', choices=['compact', 'standard', 'verbose'],
+                                    default='compact',
+                                    help='Output format: compact (minimal), standard (balanced), verbose (full metadata)')
 
         index_parser = subparsers.add_parser('index', help='Index a codebase (auto-detects languages)')
         index_parser.add_argument('path', nargs='?', default=None,

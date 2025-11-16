@@ -12,7 +12,8 @@ class ConfigMeta(type):
         'RRF_K', 'CLI_CONTENT_PREVIEW_LENGTH', 'CLI_CONTENT_PREVIEW_LINES',
         'CLI_MAX_CONTENT_LENGTH', 'EMBEDDING_MODEL', 'EMBEDDING_DIM',
         'AVAILABLE_EMBEDDING_MODELS', 'AUTO_SYNC_ENABLED', 'AUTO_SYNC_DEBOUNCE_SECONDS',
-        'AUTO_SYNC_BATCH_SIZE', 'DEFAULT_IGNORE_PATTERNS', 'EMBEDDING_BATCH_SIZE'
+        'AUTO_SYNC_BATCH_SIZE', 'DEFAULT_IGNORE_PATTERNS', 'EMBEDDING_BATCH_SIZE',
+        'RERANK_ENABLED', 'RERANK_TOP_K', 'RERANK_MODEL'
     }
 
     def __getattribute__(cls, name):
@@ -42,16 +43,22 @@ class AppConfig(metaclass=ConfigMeta):
     _AUTO_SYNC_DEBOUNCE_SECONDS = 2.0
     _AUTO_SYNC_BATCH_SIZE = 10
 
-    _EMBEDDING_DIM = 1024
-    _EMBEDDING_MODEL = "jina-embeddings-v3"
+    _EMBEDDING_DIM = 768
+    _EMBEDDING_MODEL = "sfr-embedding-code-2b"
     _EMBEDDING_BATCH_SIZE = 100
 
     _AVAILABLE_EMBEDDING_MODELS = {
         # === 2025 State-of-the-Art Models ===
+        "sfr-embedding-code-2b": {
+            "full_name": "Salesforce/SFR-Embedding-Code-2B_R",
+            "dim": 768,
+            "description": "⭐ 2025 CoIR #1 (2B): SOTA code retrieval, 67.4% NDCG@10",
+            "trust_remote_code": False
+        },
         "jina-embeddings-v3": {
             "full_name": "jinaai/jina-embeddings-v3",
             "dim": 1024,
-            "description": "⭐ 2025 SOTA: Multilingual, MRL (32-1024 dim flexible)",
+            "description": "2025 General-purpose: Multilingual, MRL (32-1024 dim)",
             "trust_remote_code": True
         },
         "jina-code-embeddings-1.5b": {
@@ -63,7 +70,7 @@ class AppConfig(metaclass=ConfigMeta):
         "sfr-embedding-code": {
             "full_name": "Salesforce/SFR-Embedding-Code_R",
             "dim": 768,
-            "description": "2025 CoIR #1: Best code retrieval performance",
+            "description": "2025 CoIR #1 (base): Best code retrieval performance",
             "trust_remote_code": False
         },
 
@@ -128,44 +135,25 @@ class AppConfig(metaclass=ConfigMeta):
 
     _DEFAULT_IGNORE_PATTERNS = EXTENSION_BLACKLIST + PATH_BLACKLIST
 
-    PROFILE_THRESHOLD_MEDIUM_MAX = 15000
+    # Search & Indexing Configuration
+    _DEFAULT_CHUNK_SIZE = 1536
+    _DEFAULT_CHUNK_OVERLAP = 200
+    _MAX_FILE_SIZE = 5242880
+    _DEFAULT_SEARCH_LIMIT = 100
 
-    PROFILES = {
-        "medium": {
-            "description": "Medium projects (< 15000 files)",
-            "chunk_size": 1536,
-            "chunk_overlap": 200,
-            "max_file_size": 5242880,
-            "search_limit": 100,
-            "rrf_k": 75,
-            "embedding_model": "jina-embeddings-v3",
-            "preview_length": 1200,
-            "preview_lines": 30,
-            "embedding_batch_size": 64
-        },
-        "large": {
-            "description": "Large projects (>= 15000 files)",
-            "chunk_size": 2048,
-            "chunk_overlap": 300,
-            "max_file_size": 10485760,
-            "search_limit": 200,
-            "rrf_k": 100,
-            "embedding_model": "jina-embeddings-v3",
-            "preview_length": 1500,
-            "preview_lines": 40,
-            "embedding_batch_size": 32
-        }
-    }
+    # RRF (Reciprocal Rank Fusion) K parameter
+    # Lower values (10-30): Sharper ranking, prefer top results
+    # Higher values (60-100): Smoother ranking, less aggressive
+    # Research-based optimal: 60
+    _RRF_K = 60
 
-    _DEFAULT_CHUNK_SIZE = None
-    _DEFAULT_CHUNK_OVERLAP = None
-    _MAX_FILE_SIZE = None
-    _DEFAULT_SEARCH_LIMIT = None
-    _RRF_K = None
+    # Cross-Encoder Re-Ranking Configuration
+    _RERANK_ENABLED = True
+    _RERANK_TOP_K = 20  # Re-rank top N results
+    _RERANK_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
     _current_project_path = None
     _config_loaded = False
-    _active_profile = "auto"
 
     @classmethod
     def init_directories(cls):
@@ -275,57 +263,13 @@ class AppConfig(metaclass=ConfigMeta):
         return display_name.lower().replace(' ', '_')
 
     @classmethod
-    def ensure_config_loaded(cls, project_path: str = None, profile: str = "auto"):
+    def ensure_config_loaded(cls, project_path: str = None):
         if not project_path:
             project_path = str(Path.cwd().resolve())
 
-        if not cls._config_loaded or cls._current_project_path != project_path or cls._active_profile != profile:
+        if not cls._config_loaded or cls._current_project_path != project_path:
             cls._current_project_path = project_path
-            cls._active_profile = profile
-            cls.apply_profile(profile, project_path)
             cls._config_loaded = True
-
-    @classmethod
-    def detect_profile(cls, project_path: str) -> str:
-        try:
-            from app.core.file_filters import should_index_file
-
-            project_dir = Path(project_path)
-            file_count = 0
-
-            for file_path in project_dir.rglob('*'):
-                if file_path.is_file() and should_index_file(str(file_path), str(project_dir)):
-                    file_count += 1
-
-            return "medium" if file_count <= cls.PROFILE_THRESHOLD_MEDIUM_MAX else "large"
-
-        except Exception:
-            return "medium"
-
-    @classmethod
-    def apply_profile(cls, profile_name: str, project_path: str):
-        cls._current_project_path = project_path
-
-        active_profile = profile_name
-        if profile_name == "auto":
-            active_profile = cls.detect_profile(project_path)
-
-        profile_settings = cls.PROFILES.get(active_profile, cls.PROFILES.get("medium", {}))
-
-        cls._DEFAULT_CHUNK_SIZE = profile_settings.get("chunk_size", 512)
-        cls._DEFAULT_CHUNK_OVERLAP = profile_settings.get("chunk_overlap", 50)
-        cls._MAX_FILE_SIZE = profile_settings.get("max_file_size", 1048576)
-        cls._DEFAULT_SEARCH_LIMIT = profile_settings.get("search_limit", 50)
-        cls._RRF_K = profile_settings.get("rrf_k", 60)
-        cls._CLI_CONTENT_PREVIEW_LENGTH = profile_settings.get("preview_length", cls._CLI_CONTENT_PREVIEW_LENGTH)
-        cls._CLI_CONTENT_PREVIEW_LINES = profile_settings.get("preview_lines", cls._CLI_CONTENT_PREVIEW_LINES)
-        cls._EMBEDDING_BATCH_SIZE = profile_settings.get("embedding_batch_size", 100)
-
-    @classmethod
-    def get_active_profile(cls, project_path: str) -> str:
-        if cls._active_profile == "auto":
-            return cls.detect_profile(project_path)
-        return cls._active_profile
 
     @classmethod
     def get_ignore_config(cls, project_path: str = None) -> dict:

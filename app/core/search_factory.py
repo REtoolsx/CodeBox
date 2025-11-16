@@ -20,6 +20,6 @@ def create_search_engine(
 
     vector_db = VectorDatabase(project_path=project_path)
     embedding_gen = EmbeddingGenerator(model_name=model_name)
-    hybrid_search = HybridSearch(vector_db, embedding_gen, rrf_k=AppConfig.RRF_K or 60)
+    hybrid_search = HybridSearch(vector_db, embedding_gen, rrf_k=AppConfig.RRF_K)
 
     return vector_db, hybrid_search, embedding_gen

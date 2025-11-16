@@ -40,8 +40,6 @@ class CLIHandler:
             search_start = time.time()
             project_path = self.path_resolver.get_path()
 
-            AppConfig.apply_profile("auto", project_path)
-
             if not self.search_manager:
                 self.search_manager = SearchManager(project_path)
 
@@ -108,7 +106,7 @@ class CLIHandler:
                 project_path = self.path_resolver.get_path()
                 logger.info(f"Indexing current directory: {project_path}")
 
-            AppConfig.ensure_config_loaded(project_path, "auto")
+            AppConfig.ensure_config_loaded(project_path)
 
             metadata = AppConfig.load_project_metadata(project_path)
             is_indexed = metadata and metadata.get("indexed_at") is not None
@@ -184,7 +182,7 @@ class CLIHandler:
                 project_path = self.path_resolver.get_path()
                 logger.info(f"Re-indexing current directory: {project_path}")
 
-            AppConfig.ensure_config_loaded(project_path, "auto")
+            AppConfig.ensure_config_loaded(project_path)
 
             logger.info("Clearing previous index data...")
 

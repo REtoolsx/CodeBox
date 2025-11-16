@@ -65,6 +65,75 @@ class CodeChunk:
             "calls": self.calls or ''
         }
 
+    def to_embedding_text(self) -> str:
+        parts = []
+
+        if self.file_path:
+            parts.append(f"File: {self.file_path}")
+
+        if self.chunk_type and self.chunk_type != "code":
+            parts.append(f"Type: {self.chunk_type}")
+
+        if self.full_path:
+            parts.append(f"Path: {self.full_path}")
+        elif self.node_name and self.parent_scope:
+            parts.append(f"Path: {self.parent_scope}.{self.node_name}")
+        elif self.node_name:
+            parts.append(f"Name: {self.node_name}")
+
+        if self.signature:
+            parts.append(f"Signature: {self.signature}")
+
+        if self.docstring:
+            parts.append(f"Description: {self.docstring}")
+
+        if parts:
+            parts.append("")
+
+        parts.append(self.content)
+
+        return "\n".join(parts)
+
+    def is_high_quality(self) -> bool:
+        if self.chunk_type in ['class_definition', 'function_definition', 'decorated_definition',
+                                'method_definition', 'interface_declaration']:
+            return True
+
+        content_stripped = self.content.strip()
+
+        if self.node_name and self.node_name.strip():
+            if len(content_stripped) < 30:
+                return False
+        else:
+            if len(content_stripped) < 50:
+                return False
+
+            lines = content_stripped.split('\n')
+            code_lines = [l for l in lines if l.strip() and not l.strip().startswith('#')]
+            if len(code_lines) < 3:
+                return False
+
+        import_only_patterns = [
+            'import ', 'from ', 'require(', 'include ', '#include'
+        ]
+        lines = content_stripped.split('\n')
+        non_empty_lines = [l.strip() for l in lines if l.strip()]
+
+        if non_empty_lines:
+            import_count = sum(1 for l in non_empty_lines
+                             if any(l.startswith(p) for p in import_only_patterns))
+            if import_count / len(non_empty_lines) > 0.8:
+                return False
+
+        comment_only_patterns = ['#', '//', '/*', '*', '"""', "'''"]
+        if non_empty_lines:
+            comment_count = sum(1 for l in non_empty_lines
+                              if any(l.startswith(p) for p in comment_only_patterns))
+            if comment_count / len(non_empty_lines) > 0.9:
+                return False
+
+        return True
+
 
 class CodeChunker:
     def __init__(
@@ -96,21 +165,26 @@ class CodeChunker:
     ) -> List[CodeChunk]:
         chunks = []
         lines = content.split('\n')
+        overlap_lines = 3
 
         for node in nodes:
-            start_line = node.get('start_line', 0)
-            end_line = node.get('end_line', 0)
+            original_start = node.get('start_line', 0)
+            original_end = node.get('end_line', 0)
+
+            start_line = max(0, original_start - overlap_lines)
+            end_line = min(len(lines) - 1, original_end + overlap_lines)
             node_type = node.get('type', 'code')
 
             if start_line < len(lines) and end_line < len(lines):
                 chunk_content = '\n'.join(lines[start_line:end_line + 1])
 
                 if len(chunk_content) > self.chunk_size * 2:
-                    sub_chunks = self._sliding_window_chunk(
+                    sub_chunks = self._split_at_logical_boundaries(
                         chunk_content,
                         file_path,
                         language,
-                        start_line_offset=start_line
+                        start_line_offset=start_line,
+                        node_info=node
                     )
                     chunks.extend(sub_chunks)
                 else:
@@ -138,6 +212,61 @@ class CodeChunker:
             chunks = self._sliding_window_chunk(content, file_path, language)
 
         return chunks
+
+    def _split_at_logical_boundaries(
+        self,
+        content: str,
+        file_path: str,
+        language: str,
+        start_line_offset: int,
+        node_info: dict
+    ) -> List[CodeChunk]:
+        chunks = []
+        lines = content.split('\n')
+        current_chunk_lines = []
+        current_start_line = 0
+
+        for i, line in enumerate(lines):
+            current_chunk_lines.append(line)
+            current_content = '\n'.join(current_chunk_lines)
+
+            if not line.strip() and len(current_content) >= self.chunk_size:
+                chunk = CodeChunk(
+                    content=current_content,
+                    file_path=file_path,
+                    start_line=start_line_offset + current_start_line,
+                    end_line=start_line_offset + i,
+                    language=language,
+                    chunk_type=node_info.get('type', 'code'),
+                    node_name=node_info.get('name'),
+                    signature=node_info.get('signature'),
+                    parent_scope=node_info.get('parent_scope'),
+                    full_path=node_info.get('full_path'),
+                    scope_depth=node_info.get('scope_depth', 0)
+                )
+                chunks.append(chunk)
+                current_chunk_lines = []
+                current_start_line = i + 1
+
+        if current_chunk_lines:
+            chunk = CodeChunk(
+                content='\n'.join(current_chunk_lines),
+                file_path=file_path,
+                start_line=start_line_offset + current_start_line,
+                end_line=start_line_offset + len(lines) - 1,
+                language=language,
+                chunk_type=node_info.get('type', 'code'),
+                node_name=node_info.get('name'),
+                signature=node_info.get('signature'),
+                parent_scope=node_info.get('parent_scope'),
+                full_path=node_info.get('full_path'),
+                scope_depth=node_info.get('scope_depth', 0)
+            )
+            chunks.append(chunk)
+
+        return chunks if chunks else self._sliding_window_chunk(
+            content, file_path, language, start_line_offset
+        )
 
     def _sliding_window_chunk(
         self,

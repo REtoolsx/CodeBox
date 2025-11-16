@@ -167,6 +167,14 @@ class CoreIndexer:
                     for chunk in chunks:
                         chunk.imports = imports_str
 
+                    chunks = [chunk for chunk in chunks if chunk.is_high_quality()]
+
+                    if not chunks:
+                        result.skipped_files.append(str(file_path.relative_to(self.project_path)))
+                        result.skipped_files_count += 1
+                        callbacks.on_file_processed(file_path.name, "skipped", 0)
+                        continue
+
                     all_chunks.extend(chunks)
 
                     language = parse_result['language']
@@ -179,10 +187,13 @@ class CoreIndexer:
                     callbacks.on_file_processed(file_path.name, "indexed", len(chunks))
 
                     if len(all_chunks) >= EMBEDDING_BATCH_SIZE:
-                        chunk_texts = [chunk.content for chunk in all_chunks]
+                        chunk_texts = [chunk.to_embedding_text() for chunk in all_chunks]
 
                         embed_start = time.time()
-                        embeddings = embedding_gen.generate_embeddings(chunk_texts)
+                        embeddings = embedding_gen.generate_embeddings(
+                            chunk_texts,
+                            task="retrieval.passage"
+                        )
                         total_embedding_time += (time.time() - embed_start)
 
                         chunk_dicts = [chunk.to_dict() for chunk in all_chunks]
@@ -217,10 +228,13 @@ class CoreIndexer:
 
             if all_chunks:
                 callbacks.on_log(f"Processing final batch: {len(all_chunks)} chunks")
-                chunk_texts = [chunk.content for chunk in all_chunks]
+                chunk_texts = [chunk.to_embedding_text() for chunk in all_chunks]
 
                 embed_start = time.time()
-                embeddings = embedding_gen.generate_embeddings(chunk_texts)
+                embeddings = embedding_gen.generate_embeddings(
+                    chunk_texts,
+                    task="retrieval.passage"
+                )
                 total_embedding_time += (time.time() - embed_start)
 
                 chunk_dicts = [chunk.to_dict() for chunk in all_chunks]

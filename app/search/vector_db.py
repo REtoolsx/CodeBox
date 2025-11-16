@@ -196,11 +196,14 @@ class VectorDatabase:
             return []
 
         try:
-            results = self.table.search(query_vector.tolist()).limit(limit)
+            results = self.table.search(query_vector.tolist())\
+                .metric("cosine")\
+                .limit(limit)
 
             if filters:
                 for key, value in filters.items():
-                    results = results.where(f"{key} = '{value}'")
+                    safe_value = str(value).replace("'", "''")
+                    results = results.where(f"{key} = '{safe_value}'")
 
             results_list = results.to_list()
 
@@ -227,7 +230,8 @@ class VectorDatabase:
 
             if filters:
                 for key, value in filters.items():
-                    results = results.where(f"{key} = '{value}'")
+                    safe_value = str(value).replace("'", "''")
+                    results = results.where(f"{key} = '{safe_value}'")
 
             results_list = results.to_list()
             return results_list
@@ -242,7 +246,8 @@ class VectorDatabase:
 
         with self._lock:
             try:
-                self.table.delete(f"file_path = '{file_path}'")
+                safe_file_path = file_path.replace("'", "''")
+                self.table.delete(f"file_path = '{safe_file_path}'")
 
                 self._refresh_table()
 

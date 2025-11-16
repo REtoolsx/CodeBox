@@ -102,7 +102,8 @@ class EmbeddingGenerator:
     def generate_embeddings(
         self,
         texts: List[str],
-        batch_size: int = 32
+        batch_size: int = 32,
+        task: str = "retrieval.passage"
     ) -> np.ndarray:
         if not texts:
             return np.array([])
@@ -111,13 +112,22 @@ class EmbeddingGenerator:
             return self._generate_placeholder_embeddings(len(texts))
 
         try:
-            embeddings = self.model.encode(
-                texts,
-                batch_size=batch_size,
-                show_progress_bar=False,
-                convert_to_numpy=True,
-                normalize_embeddings=True
-            )
+            encode_kwargs = {
+                'batch_size': batch_size,
+                'show_progress_bar': False,
+                'convert_to_numpy': True,
+                'normalize_embeddings': True
+            }
+
+            model_info = AppConfig.get_embedding_model_info(AppConfig.get_embedding_model())
+            if model_info:
+                full_name = model_info.get('full_name', '').lower()
+                supports_task = 'jina' in full_name
+
+                if supports_task and task:
+                    encode_kwargs['task'] = task
+
+            embeddings = self.model.encode(texts, **encode_kwargs)
 
             return embeddings
 

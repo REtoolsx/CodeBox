@@ -72,22 +72,6 @@ Examples:
   # Stats for current directory
   cd /path/to/your/project
   python codebox.py stats
-
--------- LLM Smart Usage --------
-# Compact output (70%% token reduction - recommended for LLMs)
-python codebox.py search "query" --output compact --limit 5
-
-# Index (automatically optimizes for project size)
-python codebox.py index
-
-Output modes:
-  --output compact   → Minimal (70%% token reduction) [DEFAULT]
-  --output standard  → Balanced (50%% token reduction)
-  --output verbose   → Full metadata
-
-Note: Project size (<15k or >=15k files) is automatically detected
-      and optimizes chunk size (1536/2048), batch size, and search limits.
-----------------------------------
             """
         )
 

@@ -49,28 +49,14 @@ def main():
             formatter_class=argparse.RawDescriptionHelpFormatter,
             epilog="""
 Examples:
-  # Index current directory
-  cd /path/to/your/project
   python codebox.py index
-
-  # Index specific path
   python codebox.py index /path/to/project
-  python codebox.py index ./my-project
-
-  # Re-index from scratch (clears all previous data)
   python codebox.py reindex
 
-  # Search current directory
-  cd /path/to/your/project
   python codebox.py search "user authentication"
   python codebox.py search "login function" --mode vector --limit 5
-
-  # LLM-optimized search (with different output formats)
   python codebox.py search "error handling" --output standard --context 5
-  python codebox.py search "database" --output verbose --limit 15
 
-  # Stats for current directory
-  cd /path/to/your/project
   python codebox.py stats
             """
         )

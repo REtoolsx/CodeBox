@@ -47,6 +47,7 @@ python codebox.py stats
 ## ✨ Features
 
 - **⭐ 2025 SOTA Embedding**: Jina Embeddings v3 with Matryoshka Representation Learning (MRL)
+- **Smart Auto-Sync**: Automatic file watching when re-indexing already indexed projects
 - **Hybrid Search**: Vector + Keyword search with RRF fusion
 - **3 Output Modes**: Compact (70% token reduction), Standard (50% reduction), Verbose (full metadata)
 - **Line-Numbered Output**: All code includes line numbers for easy LLM referencing
@@ -57,6 +58,7 @@ python codebox.py stats
   - **Scope Hierarchy** (parent classes, nested functions)
   - **Call Graph** (same-file function call tracking)
 - **Auto Language Detection**: Pygments support for 597+ languages
+- **Auto Profile Optimization**: Automatically detects project size and optimizes chunk size (1536/2048)
 - **Vector Database**: LanceDB for fast similarity search
 - **JSON Output**: Optimized for LLM integration
 

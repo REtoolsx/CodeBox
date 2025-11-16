@@ -42,35 +42,63 @@ class AppConfig(metaclass=ConfigMeta):
     _AUTO_SYNC_DEBOUNCE_SECONDS = 2.0
     _AUTO_SYNC_BATCH_SIZE = 10
 
-    _EMBEDDING_DIM = 384
-    _EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+    _EMBEDDING_DIM = 1024
+    _EMBEDDING_MODEL = "jina-embeddings-v3"
     _EMBEDDING_BATCH_SIZE = 100
 
     _AVAILABLE_EMBEDDING_MODELS = {
+        # === 2025 State-of-the-Art Models ===
+        "jina-embeddings-v3": {
+            "full_name": "jinaai/jina-embeddings-v3",
+            "dim": 1024,
+            "description": "⭐ 2025 SOTA: Multilingual, MRL (32-1024 dim flexible)",
+            "trust_remote_code": True
+        },
+        "jina-code-embeddings-1.5b": {
+            "full_name": "jinaai/jina-code-embeddings-1.5b",
+            "dim": 1536,
+            "description": "2025 Code-specific: 15+ languages, Qwen2.5-Coder",
+            "trust_remote_code": True
+        },
+        "sfr-embedding-code": {
+            "full_name": "Salesforce/SFR-Embedding-Code_R",
+            "dim": 768,
+            "description": "2025 CoIR #1: Best code retrieval performance",
+            "trust_remote_code": False
+        },
+
+        # === Classic Models (Still Good) ===
         "all-MiniLM-L6-v2": {
             "full_name": "sentence-transformers/all-MiniLM-L6-v2",
             "dim": 384,
-            "description": "Fast & lightweight (default)"
+            "description": "Fast & lightweight (general-purpose)",
+            "trust_remote_code": False
         },
         "all-mpnet-base-v2": {
             "full_name": "sentence-transformers/all-mpnet-base-v2",
             "dim": 768,
-            "description": "Better quality, slower"
-        },
-        "codebert-base": {
-            "full_name": "microsoft/codebert-base",
-            "dim": 768,
-            "description": "Code-optimized BERT"
-        },
-        "graphcodebert-base": {
-            "full_name": "microsoft/graphcodebert-base",
-            "dim": 768,
-            "description": "Graph-aware code model"
+            "description": "Better quality, slower (general-purpose)",
+            "trust_remote_code": False
         },
         "bge-small-en-v1.5": {
             "full_name": "BAAI/bge-small-en-v1.5",
             "dim": 384,
-            "description": "Modern general-purpose model"
+            "description": "Modern general-purpose model",
+            "trust_remote_code": False
+        },
+
+        # === Deprecated: Old Code Models ===
+        "codebert-base": {
+            "full_name": "microsoft/codebert-base",
+            "dim": 768,
+            "description": "⚠️ DEPRECATED (2020): Use jina-code or sfr instead",
+            "trust_remote_code": False
+        },
+        "graphcodebert-base": {
+            "full_name": "microsoft/graphcodebert-base",
+            "dim": 768,
+            "description": "⚠️ DEPRECATED (2021): Use jina-code or sfr instead",
+            "trust_remote_code": False
         }
     }
 
@@ -110,7 +138,7 @@ class AppConfig(metaclass=ConfigMeta):
             "max_file_size": 1048576,
             "search_limit": 50,
             "rrf_k": 60,
-            "embedding_model": "all-MiniLM-L6-v2",
+            "embedding_model": "jina-embeddings-v3",
             "preview_length": 800,
             "preview_lines": 20,
             "embedding_batch_size": 100
@@ -122,7 +150,7 @@ class AppConfig(metaclass=ConfigMeta):
             "max_file_size": 2097152,
             "search_limit": 100,
             "rrf_k": 80,
-            "embedding_model": "all-mpnet-base-v2",
+            "embedding_model": "jina-embeddings-v3",
             "preview_length": 1000,
             "preview_lines": 25,
             "embedding_batch_size": 50

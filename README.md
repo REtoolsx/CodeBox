@@ -54,6 +54,7 @@ python codebox.py auto-sync
 
 ## ✨ Features
 
+- **⭐ 2025 SOTA Embedding**: Jina Embeddings v3 with Matryoshka Representation Learning (MRL)
 - **Hybrid Search**: Vector + Keyword search with RRF fusion
 - **3 Output Modes**: Compact (70% token reduction), Standard (50% reduction), Verbose (full metadata)
 - **Line-Numbered Output**: All code includes line numbers for easy LLM referencing

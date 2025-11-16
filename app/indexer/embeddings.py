@@ -87,7 +87,13 @@ class EmbeddingGenerator:
             return
 
         try:
-            self.model = SentenceTransformer(self.model_name)
+            model_info = AppConfig.get_embedding_model_info(AppConfig.get_embedding_model())
+            trust_remote_code = model_info.get('trust_remote_code', False) if model_info else False
+
+            self.model = SentenceTransformer(
+                self.model_name,
+                trust_remote_code=trust_remote_code
+            )
             self._save_model_cache()
 
         except Exception:

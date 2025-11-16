@@ -98,8 +98,5 @@ class StatsManager:
         return {
             'project': StatsManager.get_project_stats(project_path),
             'database': StatsManager.get_database_stats(project_path),
-            'model': StatsManager.get_model_info(project_path),
-            'version': {
-                'app_version': AppConfig.APP_VERSION
-            }
+            'model': StatsManager.get_model_info(project_path)
         }

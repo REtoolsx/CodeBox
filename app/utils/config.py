@@ -7,7 +7,7 @@ import json
 
 class ConfigMeta(type):
     _property_names = {
-        'APP_NAME', 'APP_VERSION', 'DB_TABLE_NAME', 'DEFAULT_CHUNK_SIZE',
+        'APP_NAME', 'DB_TABLE_NAME', 'DEFAULT_CHUNK_SIZE',
         'DEFAULT_CHUNK_OVERLAP', 'MAX_FILE_SIZE', 'DEFAULT_SEARCH_LIMIT',
         'RRF_K', 'CLI_CONTENT_PREVIEW_LENGTH', 'CLI_CONTENT_PREVIEW_LINES',
         'CLI_MAX_CONTENT_LENGTH', 'EMBEDDING_MODEL', 'EMBEDDING_DIM',
@@ -33,7 +33,6 @@ class AppConfig(metaclass=ConfigMeta):
     PROJECTS_DIR = HOME_DIR / "projects"
 
     _APP_NAME = "CodeBox - Your Project & LLM Friend"
-    _APP_VERSION = "2.2.0"
     _DB_TABLE_NAME = "code_chunks"
     _CLI_CONTENT_PREVIEW_LENGTH = 800
     _CLI_CONTENT_PREVIEW_LINES = 20

@@ -174,8 +174,7 @@ class CLIHandler:
 
             CLIErrorHandler.handle_success({
                 "project": full_stats["project"],
-                "database": full_stats["database"],
-                "version": full_stats["version"]
+                "database": full_stats["database"]
             })
 
         except Exception as e:

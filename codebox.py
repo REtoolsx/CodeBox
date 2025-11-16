@@ -45,15 +45,15 @@ def main():
         AppConfig.ensure_config_loaded()
 
         parser = argparse.ArgumentParser(
-            description="CodeBox - Your Project & LLM Friend (Auto Language Detection)",
+            description="CodeBox - Your Project & LLM Friend",
             formatter_class=argparse.RawDescriptionHelpFormatter,
             epilog="""
 Examples:
-  # Index current directory (auto-detects all supported languages)
+  # Index current directory
   cd /path/to/your/project
   python codebox.py index
 
-  # Index specific path (auto-detects all supported languages and project size)
+  # Index specific path
   python codebox.py index /path/to/project
   python codebox.py index ./my-project
 
@@ -91,7 +91,7 @@ Examples:
                                     default='compact',
                                     help='Output format: compact (minimal), standard (balanced), verbose (full metadata)')
 
-        index_parser = subparsers.add_parser('index', help='Index a codebase (auto-detects languages and project size, auto-sync if already indexed)')
+        index_parser = subparsers.add_parser('index', help='Index a codebase (starts auto-sync if already indexed)')
         index_parser.add_argument('path', nargs='?', default=None,
                                    help='Project directory path (default: current directory)')
 

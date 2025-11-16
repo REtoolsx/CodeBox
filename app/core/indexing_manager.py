@@ -28,7 +28,6 @@ class IndexingManager:
         validated_path = project_ctx.project_path
 
         logger.info(f"Indexing prepared for: {validated_path}")
-        logger.info(f"Auto-detecting all supported languages")
 
         context = project_ctx.get_context()
 

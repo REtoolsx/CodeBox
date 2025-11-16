@@ -272,7 +272,6 @@ class CLIHandler:
 
             print(f"Auto-sync started. Watching for changes... (Ctrl+C to stop)")
             print(f"Project: {project_path}")
-            print(f"Auto-detecting all supported languages")
             print()
 
             def on_sync_complete(batch_files: List[str], chunks_updated: int):

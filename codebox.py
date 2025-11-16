@@ -18,21 +18,17 @@ def run_cli(args):
             limit=args.limit,
             full_content=args.full_content,
             context=args.context,
-            profile=getattr(args, 'profile', None),
             output=getattr(args, 'output', 'compact')
         )
 
     elif args.command == "index":
-        handler.index(
-            project_path=args.path,
-            profile=getattr(args, 'profile', None)
-        )
+        handler.index(project_path=args.path)
+
+    elif args.command == "reindex":
+        handler.reindex(project_path=args.path)
 
     elif args.command == "stats":
         handler.stats()
-
-    elif args.command == "auto-sync":
-        handler.auto_sync()
 
 
 def main():
@@ -57,9 +53,12 @@ Examples:
   cd /path/to/your/project
   python codebox.py index
 
-  # Index specific path (auto-detects all supported languages)
+  # Index specific path (auto-detects all supported languages and project size)
   python codebox.py index /path/to/project
   python codebox.py index ./my-project
+
+  # Re-index from scratch (clears all previous data)
+  python codebox.py reindex
 
   # Search current directory
   cd /path/to/your/project
@@ -74,9 +73,21 @@ Examples:
   cd /path/to/your/project
   python codebox.py stats
 
-  # Auto-sync (watch for changes)
-  cd /path/to/your/project
-  python codebox.py auto-sync
+-------- LLM Smart Usage --------
+# Compact output (70%% token reduction - recommended for LLMs)
+python codebox.py search "query" --output compact --limit 5
+
+# Index (automatically optimizes for project size)
+python codebox.py index
+
+Output modes:
+  --output compact   → Minimal (70%% token reduction) [DEFAULT]
+  --output standard  → Balanced (50%% token reduction)
+  --output verbose   → Full metadata
+
+Note: Project size (<15k or >=15k files) is automatically detected
+      and optimizes chunk size (1536/2048), batch size, and search limits.
+----------------------------------
             """
         )
 
@@ -96,18 +107,15 @@ Examples:
                                     default='compact',
                                     help='Output format: compact (minimal), standard (balanced), verbose (full metadata)')
 
-        index_parser = subparsers.add_parser('index', help='Index a codebase (auto-detects languages)')
+        index_parser = subparsers.add_parser('index', help='Index a codebase (auto-detects languages and project size, auto-sync if already indexed)')
         index_parser.add_argument('path', nargs='?', default=None,
                                    help='Project directory path (default: current directory)')
-        index_parser.add_argument('--profile', choices=['auto', 'medium', 'large'],
-                                   default='auto', help='Profile to use (default: auto)')
 
-        search_parser.add_argument('--profile', choices=['auto', 'medium', 'large'],
-                                   help='Profile to use (auto, medium, large)')
+        reindex_parser = subparsers.add_parser('reindex', help='Re-index from scratch (clears all previous data)')
+        reindex_parser.add_argument('path', nargs='?', default=None,
+                                     help='Project directory path (default: current directory)')
 
         subparsers.add_parser('stats', help='Show database statistics')
-
-        subparsers.add_parser('auto-sync', help='Watch for file changes and auto-sync')
 
         args = parser.parse_args()
 

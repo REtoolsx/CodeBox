@@ -128,32 +128,32 @@ class AppConfig(metaclass=ConfigMeta):
 
     _DEFAULT_IGNORE_PATTERNS = EXTENSION_BLACKLIST + PATH_BLACKLIST
 
-    PROFILE_THRESHOLD_MEDIUM_MAX = 5000
+    PROFILE_THRESHOLD_MEDIUM_MAX = 15000
 
     PROFILES = {
         "medium": {
-            "description": "Medium projects (< 5000 files)",
-            "chunk_size": 512,
-            "chunk_overlap": 50,
-            "max_file_size": 1048576,
-            "search_limit": 50,
-            "rrf_k": 60,
+            "description": "Medium projects (< 15000 files)",
+            "chunk_size": 1536,
+            "chunk_overlap": 200,
+            "max_file_size": 5242880,
+            "search_limit": 100,
+            "rrf_k": 75,
             "embedding_model": "jina-embeddings-v3",
-            "preview_length": 800,
-            "preview_lines": 20,
-            "embedding_batch_size": 100
+            "preview_length": 1200,
+            "preview_lines": 30,
+            "embedding_batch_size": 64
         },
         "large": {
-            "description": "Large projects (> 5000 files)",
-            "chunk_size": 1024,
-            "chunk_overlap": 100,
-            "max_file_size": 2097152,
-            "search_limit": 100,
-            "rrf_k": 80,
+            "description": "Large projects (>= 15000 files)",
+            "chunk_size": 2048,
+            "chunk_overlap": 300,
+            "max_file_size": 10485760,
+            "search_limit": 200,
+            "rrf_k": 100,
             "embedding_model": "jina-embeddings-v3",
-            "preview_length": 1000,
-            "preview_lines": 25,
-            "embedding_batch_size": 50
+            "preview_length": 1500,
+            "preview_lines": 40,
+            "embedding_batch_size": 32
         }
     }
 

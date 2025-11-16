@@ -34,15 +34,13 @@ class CLIHandler:
         limit: int = 10,
         full_content: bool = False,
         context: int = 0,
-        profile: Optional[str] = None,
         output: str = "compact"
     ):
         try:
             search_start = time.time()
             project_path = self.path_resolver.get_path()
 
-            if profile:
-                AppConfig.apply_profile(profile, project_path)
+            AppConfig.apply_profile("auto", project_path)
 
             if not self.search_manager:
                 self.search_manager = SearchManager(project_path)
@@ -103,18 +101,29 @@ class CLIHandler:
 
     def index(
         self,
-        project_path: Optional[str] = None,
-        profile: Optional[str] = None
+        project_path: Optional[str] = None
     ):
         try:
             if project_path is None:
                 project_path = self.path_resolver.get_path()
                 logger.info(f"Indexing current directory: {project_path}")
 
-            active_profile = profile if profile else "auto"
-            AppConfig.ensure_config_loaded(project_path, active_profile)
+            AppConfig.ensure_config_loaded(project_path, "auto")
 
-            logger.info(f"Using profile: {active_profile}")
+            metadata = AppConfig.load_project_metadata(project_path)
+            is_indexed = metadata and metadata.get("indexed_at") is not None
+
+            if is_indexed:
+                logger.info("Project already indexed. Starting auto-sync...")
+                print(json.dumps({
+                    "success": True,
+                    "message": "Project already indexed. Auto-sync started.",
+                    "indexed_at": metadata.get("indexed_at"),
+                    "project_path": project_path
+                }, indent=2, ensure_ascii=False))
+                print()
+                self.auto_sync()
+                return
 
             indexing_ctx = IndexingManager.prepare_indexing(project_path)
 
@@ -165,6 +174,78 @@ class CLIHandler:
 
         except Exception as e:
             CLIErrorHandler.handle_error("Indexing", e)
+
+    def reindex(
+        self,
+        project_path: Optional[str] = None
+    ):
+        try:
+            if project_path is None:
+                project_path = self.path_resolver.get_path()
+                logger.info(f"Re-indexing current directory: {project_path}")
+
+            AppConfig.ensure_config_loaded(project_path, "auto")
+
+            logger.info("Clearing previous index data...")
+
+            project_dir = AppConfig.get_project_dir(project_path)
+            if project_dir.exists():
+                import shutil
+                shutil.rmtree(project_dir)
+                logger.info("Previous index cleared successfully")
+
+            AppConfig.get_project_dir(project_path).mkdir(exist_ok=True, parents=True)
+
+            indexing_ctx = IndexingManager.prepare_indexing(project_path)
+
+            class ProgressBarCallbacks(IndexingCallbacks):
+                def __init__(self):
+                    self.indexed_count = 0
+                    self.failed_count = 0
+                    self.skipped_count = 0
+
+                def on_progress(self, current: int, total: int, filename: str):
+                    pass
+
+                def on_file_processed(self, filename: str, status: str, chunks: int):
+                    if status == "indexed":
+                        self.indexed_count += 1
+                    elif status == "failed":
+                        self.failed_count += 1
+                    elif status == "skipped":
+                        self.skipped_count += 1
+
+                def on_log(self, message: str):
+                    pass
+
+            callbacks = ProgressBarCallbacks()
+            indexer = CoreIndexer(indexing_ctx.project_path)
+            result = indexer.index(callbacks=callbacks)
+
+            if not result.success:
+                raise Exception(result.error)
+
+            IndexingManager.finalize_indexing(indexing_ctx.project_path, success=True)
+
+            CLIErrorHandler.handle_success({
+                "message": "Re-indexing completed successfully",
+                "project_path": result.project_path,
+                "project_hash": AppConfig.get_project_hash(result.project_path),
+                "files_processed": result.total_files,
+                "chunks_indexed": result.total_chunks,
+                "embedding_model": result.embedding_model,
+                "database_location": result.database_location,
+                "indexed_files": result.indexed_files_count,
+                "failed_files": result.failed_files_count,
+                "skipped_files": result.skipped_files_count,
+                "processing_time_ms": round(result.processing_time_ms, 2),
+                "embedding_time_ms": round(result.embedding_time_ms, 2),
+                "language_breakdown": result.language_breakdown,
+                "failed_files_details": result.failed_files if result.failed_files_count > 0 else None
+            })
+
+        except Exception as e:
+            CLIErrorHandler.handle_error("Re-indexing", e)
 
     def stats(self):
         try:

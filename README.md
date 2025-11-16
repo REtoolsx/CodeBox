@@ -26,13 +26,11 @@ pip install -r requirements.txt
 # Show help
 python codebox.py --help
 
-# Index your project (auto-detects languages)
+# Index your project (auto-detects languages and project size)
 python codebox.py index /path/to/project
 
-# Index with profile (auto, medium, large)
-python codebox.py index --profile auto       # Auto-detect based on project size
-python codebox.py index --profile medium     # Optimized for medium projects
-python codebox.py index --profile large      # Optimized for large projects
+# Re-index from scratch (clears all previous data)
+python codebox.py reindex
 
 # Search code
 python codebox.py search "user authentication" --mode hybrid --limit 10
@@ -42,14 +40,8 @@ python codebox.py search "authentication" --output compact    # Default: minimal
 python codebox.py search "authentication" --output standard   # Balanced: 50% token reduction
 python codebox.py search "authentication" --output verbose    # Full metadata
 
-# Search with profile
-python codebox.py search "authentication" --profile large --limit 20
-
 # View statistics
 python codebox.py stats
-
-# Auto-sync (watch for file changes)
-python codebox.py auto-sync
 ```
 
 ## ✨ Features
